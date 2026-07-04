@@ -41,3 +41,22 @@ def test_load_portfolio_from_sheet_parses_rows():
     assert holdings[0].quantity == 10
     assert holdings[0].avg_cost == 150.5
     assert holdings[1].symbol == "MSFT"
+
+
+def test_load_portfolio_from_sheet_skips_blank_rows():
+    mock_worksheet = MagicMock()
+    mock_worksheet.get_all_records.return_value = [
+        {"symbol": "AAPL", "quantity": "10", "avg_cost": "150.5"},
+        {"symbol": "", "quantity": "", "avg_cost": ""},
+    ]
+    mock_client = MagicMock()
+    mock_client.open_by_key.return_value.sheet1 = mock_worksheet
+
+    with patch(
+        "stock_analyzer.portfolio.gspread.service_account_from_dict",
+        return_value=mock_client,
+    ):
+        holdings = load_portfolio_from_sheet("dummy-sheet-id", {"fake": "creds"})
+
+    assert len(holdings) == 1
+    assert holdings[0].symbol == "AAPL"
