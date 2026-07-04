@@ -40,9 +40,12 @@ def load_portfolio_from_sheet(sheet_id: str, service_account_info: dict) -> list
 
     holdings = []
     for row in worksheet.get_all_records():
+        symbol = str(row.get("symbol", "")).strip()
+        if not symbol:
+            continue
         holdings.append(
             Holding(
-                symbol=str(row["symbol"]).strip().upper(),
+                symbol=symbol.upper(),
                 quantity=float(row["quantity"]),
                 avg_cost=float(row["avg_cost"]),
             )
