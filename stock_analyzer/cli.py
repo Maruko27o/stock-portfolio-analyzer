@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import time
 
 from stock_analyzer.analysis import HoldingAnalysis, analyze_holding
 from stock_analyzer.data_fetcher import fetch_fundamentals
@@ -101,19 +102,48 @@ def generate_summary(holdings: list[Holding], include_swing_pick: bool = True) -
     return lines
 
 
+def _analyze_with_retry(holding: Holding, attempts: int = 2, delay: float = 8.0) -> HoldingAnalysis:
+    """Analyze a holding, retrying once after a pause to ride out transient rate limits."""
+    for attempt in range(attempts):
+        try:
+            return analyze_holding(holding)
+        except Exception:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(delay)
+    raise RuntimeError("unreachable")
+
+
 def generate_flex_messages(holdings: list[Holding], include_swing_pick: bool = True) -> list[dict]:
-    """Build LINE Flex message objects: a market card, one card per holding, and a swing card."""
-    snapshot = fetch_market_snapshot()
-    sentiment = evaluate_market_sentiment(snapshot)
+    """Build LINE Flex message objects: a market card, one card per holding, and a swing card.
 
-    summaries = [build_summary(analyze_holding(holding), sentiment) for holding in holdings]
+    Individual failures (a rate-limited or delisted ticker, a market/swing hiccup) are
+    tolerated so the notification still goes out with whatever succeeded.
+    """
+    bubbles: list[dict] = []
+
+    try:
+        snapshot = fetch_market_snapshot()
+        sentiment = evaluate_market_sentiment(snapshot)
+        bubbles.append(market_bubble(sentiment, snapshot))
+    except Exception:
+        sentiment = "中立"  # neutral fallback so holding scores can still be computed
+
+    summaries = []
+    failed_symbols = []
+    for holding in holdings:
+        try:
+            summaries.append(build_summary(_analyze_with_retry(holding), sentiment))
+        except Exception:
+            failed_symbols.append(holding.symbol)
     summaries.sort(key=lambda s: s.raw_score, reverse=True)
-
-    bubbles = [market_bubble(sentiment, snapshot)]
     bubbles.extend(holding_bubble(summary) for summary in summaries)
 
     if include_swing_pick:
-        picks = top_swing_picks()
+        try:
+            picks = top_swing_picks()
+        except Exception:
+            picks = []
         if picks:
             pick_dicts = []
             for candidate in picks:
@@ -132,7 +162,16 @@ def generate_flex_messages(holdings: list[Holding], include_swing_pick: bool = T
                 )
             bubbles.append(swing_bubble(pick_dicts))
 
-    return to_flex_messages(bubbles, alt_text="株ポートフォリオ分析")
+    if not bubbles:
+        # Nothing could be fetched at all (e.g. full rate limit) — fail loudly.
+        raise RuntimeError("分析データを取得できませんでした（全銘柄・市場データの取得に失敗）")
+
+    messages: list[dict] = to_flex_messages(bubbles, alt_text="株ポートフォリオ分析")
+    if failed_symbols:
+        messages.append(
+            {"type": "text", "text": "⚠️ 取得できなかった銘柄: " + ", ".join(failed_symbols)}
+        )
+    return messages
 
 
 def main() -> None:
