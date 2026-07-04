@@ -138,6 +138,17 @@ RATING_LABEL = {
     "×": "売り",
 }
 
+# A colored marker per rating so each holding is visually distinct at a glance
+# (red = strong buy, through to black = sell).
+RATING_EMOJI = {
+    "◎◎": "🔴",
+    "◎": "🟠",
+    "○": "🟡",
+    "△": "⚪",
+    "▲": "🔵",
+    "×": "⚫",
+}
+
 
 def select_reasons(signals: list[Signal], score: int, limit: int = 5) -> list[str]:
     """Pick the strongest reasons that match the overall direction (bullish if score >= 50)."""
@@ -255,9 +266,10 @@ def format_summary(summary: HoldingSummary) -> str:
     """Render a single holding summary as a compact, scannable LINE message."""
     profit = f"{summary.profit_pct:+.1f}%" if summary.profit_pct is not None else "—"
     heading = f"{summary.symbol} {summary.name}" if summary.name else summary.symbol
+    marker = RATING_EMOJI[summary.rating]
     lines = [
         DIVIDER,
-        f"【{heading}】",
+        f"{marker}【{heading}】",
         f"現在：{_price(summary.current_price)}",
         f"取得：{_price(summary.avg_cost)}",
         f"損益：{profit}",

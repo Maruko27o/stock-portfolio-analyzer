@@ -82,12 +82,17 @@ def generate_report(holdings: list[Holding]) -> list[str]:
 
 
 def generate_summary(holdings: list[Holding], include_swing_pick: bool = True) -> list[str]:
-    """Build the concise, AI-selected summary report — used for LINE notifications."""
+    """Build the concise, AI-selected summary report — used for LINE notifications.
+
+    Holdings are ordered by their overall score, highest first.
+    """
     sentiment, _ = _market_section()
+    summaries = [build_summary(analyze_holding(holding), sentiment) for holding in holdings]
+    summaries.sort(key=lambda s: s.score, reverse=True)
+
     lines: list[str] = [format_market_header(sentiment), ""]
-    for holding in holdings:
-        analysis = analyze_holding(holding)
-        lines.append(format_summary(build_summary(analysis, sentiment)))
+    for summary in summaries:
+        lines.append(format_summary(summary))
         lines.append("")
     if include_swing_pick:
         lines.extend(build_swing_section())
