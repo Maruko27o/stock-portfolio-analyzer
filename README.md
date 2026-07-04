@@ -21,7 +21,12 @@
 **フェーズ4・5: 定期実行 + LINE通知**
 - GitHub Actionsで毎日決まった時刻(デフォルト: 07:00 JST)に自動実行
 - 分析結果をLINE Messaging API(Broadcast API)経由で通知
-- 保有銘柄データ・LINEのチャネルアクセストークンはGitHub Actionsの Secrets で管理し、コードやログには一切出力しない
+- LINEのチャネルアクセストークンはGitHub Actionsの Secrets で管理し、コードやログには一切出力しない
+
+**フェーズ6: 保有銘柄の入力をGoogleスプレッドシートに変更**
+- 保有銘柄(symbol・quantity・avg_cost)を非公開のGoogleスプレッドシートで管理
+- 専用のGoogleサービスアカウントにのみ閲覧権限を付与し、外部には非公開のまま
+- スプレッドシートを編集するだけで、次回の自動実行に反映される(CSVやSecretsを直接触る必要がなくなった)
 
 ## セットアップ
 
@@ -54,17 +59,29 @@ python -m pytest
 - **APIキー・トークン(LINE Notifyのトークンなど)はコードに直接書かず、`.env` など `.gitignore` 対象のファイルや環境変数で管理してください。**
 - このリポジトリはPublicのため、上記を守らないとコード・データが誰でも閲覧可能な状態で公開されます。
 
+## Googleスプレッドシートの準備(保有銘柄の入力)
+
+1. [Google Cloud Console](https://console.cloud.google.com/) で新規プロジェクトを作成
+2. 「APIとサービス」→「ライブラリ」から **Google Sheets API** と **Google Drive API** を有効化
+3. 「APIとサービス」→「認証情報」→「認証情報を作成」→「サービスアカウント」を作成(役割は付与不要)
+4. 作成したサービスアカウント →「キー」タブ →「鍵を追加」→「新しい鍵を作成」で **JSON** 形式のキーをダウンロード
+   - JSON内の `client_email` がサービスアカウントのメールアドレス
+5. 保有銘柄用のスプレッドシートを新規作成し、1行目に `symbol,quantity,avg_cost` の見出しを入れて保有銘柄を入力
+6. スプレッドシートの「共有」から、手順4のサービスアカウントのメールアドレスを**閲覧者**として追加(これ以外には非公開のまま)
+7. スプレッドシートのURL `https://docs.google.com/spreadsheets/d/【ここがID】/edit` からIDを控える
+
 ## GitHub Actionsのセットアップ(定期実行 + LINE通知)
 
-以下2つをリポジトリの Settings → Secrets and variables → Actions → New repository secret から登録してください(値はGitHubの画面上で直接入力し、他の場所に貼り付けないでください)。
+以下をリポジトリの Settings → Secrets and variables → Actions → New repository secret から登録してください(値はGitHubの画面上で直接入力し、他の場所に貼り付けないでください)。
 
 | Secret名 | 内容 |
 | --- | --- |
-| `PORTFOLIO_CSV` | 実際の保有銘柄CSVの中身(`symbol,quantity,avg_cost` 形式) |
 | `LINE_CHANNEL_ACCESS_TOKEN` | LINE Developersで発行したチャネルアクセストークン(長期) |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | ダウンロードしたサービスアカウントJSONキーの中身全体 |
+| `GOOGLE_SHEET_ID` | 保有銘柄スプレッドシートのID |
 
-登録後は `.github/workflows/daily-report.yml` のcronで指定した時刻に自動実行されます。手動で試したい場合はGitHubの Actions タブから `workflow_dispatch` で即時実行できます。
+登録後は `.github/workflows/daily-report.yml` のcronで指定した時刻に自動実行されます。手動で試したい場合はGitHubの Actions タブから `workflow_dispatch` で即時実行できます。以降、保有銘柄を変更したい場合はスプレッドシートを直接編集するだけで、次回の自動実行に反映されます。
 
 ## 今後のロードマップ
 
-- [ ] 保有銘柄の入力をCSVからWeb UIまたは証券口座連携に置き換え
+- [ ] 保有銘柄の入力を、より使いやすい専用Web UIや証券口座連携に置き換え
