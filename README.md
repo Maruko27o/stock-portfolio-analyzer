@@ -69,9 +69,11 @@ python -m stock_analyzer.cli --portfolio portfolio.sample.csv
 `portfolio.sample.csv` を参考に、自分の保有銘柄を記載したCSVを用意してください。
 
 ```csv
-symbol,quantity,avg_cost
-AAPL,10,150.00
+symbol,quantity,avg_cost,name
+AAPL,10,150.00,アップル
 ```
+
+`name` 列は任意です。記入するとその表記(日本語など好きな名前)で通知され、空欄の場合はyfinanceが返す企業名(多くは英語)が使われます。日本株の日本語名を表示したい場合はこの列に記入してください。
 
 ## テスト
 
@@ -92,7 +94,7 @@ python -m pytest
 3. 「APIとサービス」→「認証情報」→「認証情報を作成」→「サービスアカウント」を作成(役割は付与不要)
 4. 作成したサービスアカウント →「キー」タブ →「鍵を追加」→「新しい鍵を作成」で **JSON** 形式のキーをダウンロード
    - JSON内の `client_email` がサービスアカウントのメールアドレス
-5. 保有銘柄用のスプレッドシートを新規作成し、1行目に `symbol,quantity,avg_cost` の見出しを入れて保有銘柄を入力
+5. 保有銘柄用のスプレッドシートを新規作成し、1行目に `symbol,quantity,avg_cost` の見出しを入れて保有銘柄を入力(任意で `name` 列を追加すると、その表記〈日本語名など〉で通知されます)
 6. スプレッドシートの「共有」から、手順4のサービスアカウントのメールアドレスを**閲覧者**として追加(これ以外には非公開のまま)
 7. スプレッドシートのURL `https://docs.google.com/spreadsheets/d/【ここがID】/edit` からIDを控える
 
@@ -106,7 +108,9 @@ python -m pytest
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | ダウンロードしたサービスアカウントJSONキーの中身全体 |
 | `GOOGLE_SHEET_ID` | 保有銘柄スプレッドシートのID |
 
-登録後は `.github/workflows/daily-report.yml` のcronで指定した時刻に自動実行されます。手動で試したい場合はGitHubの Actions タブから `workflow_dispatch` で即時実行できます。以降、保有銘柄を変更したい場合はスプレッドシートを直接編集するだけで、次回の自動実行に反映されます。
+登録後は `.github/workflows/daily-report.yml` のcronで指定した時刻(**平日の 06:00・10:00・12:00 JST**)に自動実行されます。手動で試したい場合はGitHubの Actions タブから `workflow_dispatch` で即時実行できます。以降、保有銘柄を変更したい場合はスプレッドシートを直接編集するだけで、次回の自動実行に反映されます。
+
+> GitHub Actionsのスケジュールは負荷状況により数分〜十数分遅れて実行されることがあります(GitHubの仕様)。
 
 ## 今後のロードマップ
 

@@ -84,7 +84,7 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
 
     return HoldingAnalysis(
         holding=holding,
-        name=fundamentals["name"],
+        name=holding.name or fundamentals["name"],
         current_price=closes[-1] if closes else None,
         sma_short=simple_moving_average(closes, SMA_SHORT),
         sma_mid=simple_moving_average(closes, SMA_MID),

@@ -18,13 +18,29 @@ def test_load_portfolio_parses_csv_rows(tmp_path):
     assert holdings[0].symbol == "AAPL"
     assert holdings[0].quantity == 10
     assert holdings[0].avg_cost == 150.5
+    assert holdings[0].name is None
     assert holdings[1].symbol == "MSFT"
+
+
+def test_load_portfolio_reads_optional_name_column(tmp_path):
+    csv_path = tmp_path / "portfolio.csv"
+    csv_path.write_text(
+        "symbol,quantity,avg_cost,name\n"
+        "7203.T,100,3000,トヨタ自動車\n"
+        "6758.T,10,13000,\n",
+        encoding="utf-8",
+    )
+
+    holdings = load_portfolio(str(csv_path))
+
+    assert holdings[0].name == "トヨタ自動車"
+    assert holdings[1].name is None
 
 
 def test_load_portfolio_from_sheet_parses_rows():
     mock_worksheet = MagicMock()
     mock_worksheet.get_all_records.return_value = [
-        {"symbol": "aapl", "quantity": "10", "avg_cost": "150.5"},
+        {"symbol": "aapl", "quantity": "10", "avg_cost": "150.5", "name": "アップル"},
         {"symbol": "MSFT", "quantity": "5", "avg_cost": "300"},
     ]
     mock_client = MagicMock()
@@ -40,7 +56,9 @@ def test_load_portfolio_from_sheet_parses_rows():
     assert holdings[0].symbol == "AAPL"
     assert holdings[0].quantity == 10
     assert holdings[0].avg_cost == 150.5
+    assert holdings[0].name == "アップル"
     assert holdings[1].symbol == "MSFT"
+    assert holdings[1].name is None
 
 
 def test_load_portfolio_from_sheet_skips_blank_rows():
