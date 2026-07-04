@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import argparse
+from datetime import date
 
-from stock_analyzer.data_fetcher import fetch_fundamentals, fetch_price_history
-from stock_analyzer.fundamentals import evaluate_pbr, evaluate_per
+from stock_analyzer.data_fetcher import fetch_fundamentals, fetch_next_earnings_date, fetch_price_history
+from stock_analyzer.fundamentals import (
+    evaluate_growth,
+    evaluate_payout_ratio,
+    evaluate_pbr,
+    evaluate_per,
+    evaluate_roa,
+    evaluate_roe,
+)
 from stock_analyzer.indicators import (
     bollinger_sigma,
     evaluate_bollinger,
@@ -67,6 +75,17 @@ def _build_holding_report(holding: Holding) -> list[str]:
     per_signal = evaluate_per(per)
     pbr_signal = evaluate_pbr(pbr)
 
+    roe = fundamentals["roe"]
+    roa = fundamentals["roa"]
+    eps = fundamentals["eps"]
+    bps = fundamentals["bps"]
+    revenue_growth = fundamentals["revenue_growth"]
+    earnings_growth = fundamentals["earnings_growth"]
+    payout_ratio = fundamentals["payout_ratio"]
+
+    next_earnings = fetch_next_earnings_date(holding.symbol)
+    days_to_earnings = (next_earnings - date.today()).days if next_earnings else None
+
     score = total_score(rsi, per, pbr)
     recommendation = evaluate_recommendation(score)
 
@@ -80,6 +99,17 @@ def _build_holding_report(holding: Holding) -> list[str]:
         f"価格位置: {price_position}",
         f"52週高値/安値: {_fmt(period_high)} / {_fmt(period_low)}",
         f"PER: {_fmt(per, '{:.1f}')}({per_signal}) / PBR: {_fmt(pbr, '{:.1f}')}({pbr_signal})",
+        f"ROE: {_fmt(roe * 100 if roe is not None else None, '{:.1f}%')}({evaluate_roe(roe)}) "
+        f"/ ROA: {_fmt(roa * 100 if roa is not None else None, '{:.1f}%')}({evaluate_roa(roa)})",
+        f"EPS: {_fmt(eps)} / BPS: {_fmt(bps)}",
+        f"売上成長率: {_fmt(revenue_growth * 100 if revenue_growth is not None else None, '{:+.1f}%')}"
+        f"({evaluate_growth(revenue_growth, '増収', '減収')}) "
+        f"/ 利益成長率: {_fmt(earnings_growth * 100 if earnings_growth is not None else None, '{:+.1f}%')}"
+        f"({evaluate_growth(earnings_growth, '増益', '減益')})",
+        f"配当性向: {_fmt(payout_ratio * 100 if payout_ratio is not None else None, '{:.1f}%')}"
+        f"({evaluate_payout_ratio(payout_ratio)})",
+        f"次回決算日: {next_earnings.isoformat() if next_earnings else 'データ不足'}"
+        + (f" (あと{days_to_earnings}日)" if days_to_earnings is not None else ""),
         f"総合スコア: {score}/100 ({recommendation})",
     ]
 
