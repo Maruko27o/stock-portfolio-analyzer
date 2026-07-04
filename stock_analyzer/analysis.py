@@ -34,6 +34,7 @@ class HoldingAnalysis:
     """All computed indicators and fundamentals for a single holding."""
 
     holding: Holding
+    name: str | None
     current_price: float | None
     sma_short: float | None
     sma_mid: float | None
@@ -83,6 +84,7 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
 
     return HoldingAnalysis(
         holding=holding,
+        name=fundamentals["name"],
         current_price=closes[-1] if closes else None,
         sma_short=simple_moving_average(closes, SMA_SHORT),
         sma_mid=simple_moving_average(closes, SMA_MID),

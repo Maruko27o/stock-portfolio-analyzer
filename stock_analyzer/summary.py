@@ -17,6 +17,7 @@ class Signal:
 @dataclass
 class HoldingSummary:
     symbol: str
+    name: str | None
     current_price: float | None
     avg_cost: float
     profit_pct: float | None
@@ -224,6 +225,7 @@ def build_summary(analysis: HoldingAnalysis, market_sentiment: str) -> HoldingSu
 
     return HoldingSummary(
         symbol=analysis.holding.symbol,
+        name=analysis.name,
         current_price=analysis.current_price,
         avg_cost=analysis.holding.avg_cost,
         profit_pct=analysis.profit_pct,
@@ -252,9 +254,10 @@ DIVIDER = "━━━━━━━━━━━━"
 def format_summary(summary: HoldingSummary) -> str:
     """Render a single holding summary as a compact, scannable LINE message."""
     profit = f"{summary.profit_pct:+.1f}%" if summary.profit_pct is not None else "—"
+    heading = f"{summary.symbol} {summary.name}" if summary.name else summary.symbol
     lines = [
         DIVIDER,
-        f"【{summary.symbol}】",
+        f"【{heading}】",
         f"現在：{_price(summary.current_price)}",
         f"取得：{_price(summary.avg_cost)}",
         f"損益：{profit}",

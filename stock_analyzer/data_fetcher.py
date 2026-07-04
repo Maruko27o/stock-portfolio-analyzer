@@ -15,6 +15,7 @@ def fetch_fundamentals(symbol: str) -> dict[str, float | str | None]:
     """Fetch valuation, profitability, dividend, and sector metrics for `symbol`. Missing fields are None."""
     info = yf.Ticker(symbol).info
     return {
+        "name": info.get("longName") or info.get("shortName"),
         "per": info.get("trailingPE"),
         "pbr": info.get("priceToBook"),
         "dividend_yield": info.get("dividendYield"),
