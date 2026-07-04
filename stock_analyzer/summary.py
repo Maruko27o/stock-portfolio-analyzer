@@ -22,6 +22,7 @@ class HoldingSummary:
     avg_cost: float
     profit_pct: float | None
     score: int
+    raw_score: int  # uncapped score used to order holdings so ties at 100 still sort
     rating: str
     action: str
     take_profit: float | None
@@ -89,6 +90,16 @@ def build_signals(analysis: HoldingAnalysis, market_sentiment: str) -> list[Sign
             signals.append(Signal(-3, "ボリンジャーバンド上限で過熱"))
         elif analysis.bollinger <= -2:
             signals.append(Signal(3, "ボリンジャーバンド下限で反発期待"))
+
+    if analysis.momentum is not None:
+        if analysis.momentum >= 10:
+            signals.append(Signal(6, f"直近10日で+{analysis.momentum:.0f}%の強い上昇"))
+        elif analysis.momentum >= 3:
+            signals.append(Signal(3, f"直近10日で+{analysis.momentum:.0f}%上昇"))
+        elif analysis.momentum <= -10:
+            signals.append(Signal(-6, f"直近10日で{analysis.momentum:.0f}%下落"))
+        elif analysis.momentum <= -3:
+            signals.append(Signal(-3, "直近10日で下落"))
 
     # --- Fundamental ---
     if analysis.per is not None:
@@ -230,7 +241,8 @@ def detect_risks(analysis: HoldingAnalysis) -> list[str]:
 
 def build_summary(analysis: HoldingAnalysis, market_sentiment: str) -> HoldingSummary:
     signals = build_signals(analysis, market_sentiment)
-    score = score_from_signals(signals)
+    raw_score = 50 + sum(s.points for s in signals)
+    score = _clamp(raw_score)
     rating = rating_from_score(score)
     take_profit, stop_loss, add_price = compute_targets(analysis, rating)
 
@@ -241,6 +253,7 @@ def build_summary(analysis: HoldingAnalysis, market_sentiment: str) -> HoldingSu
         avg_cost=analysis.holding.avg_cost,
         profit_pct=analysis.profit_pct,
         score=score,
+        raw_score=raw_score,
         rating=rating,
         action=decide_action(rating, analysis.profit_pct),
         take_profit=take_profit,

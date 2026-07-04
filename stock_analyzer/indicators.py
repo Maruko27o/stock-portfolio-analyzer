@@ -46,6 +46,16 @@ def relative_strength_index(prices: list[float], period: int = 14) -> float | No
     return 100 - (100 / (1 + rs))
 
 
+def rate_of_change(prices: list[float], period: int = 10) -> float | None:
+    """Return the % price change over the last `period` days (momentum), or None if not enough data."""
+    if len(prices) < period + 1:
+        return None
+    past = prices[-period - 1]
+    if past == 0:
+        return None
+    return (prices[-1] - past) / past * 100
+
+
 def _ema_series(values: list[float], span: int) -> list[float]:
     """Return the EMA of `values` at every point, seeded with the first value."""
     multiplier = 2 / (span + 1)

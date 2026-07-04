@@ -88,7 +88,7 @@ def generate_summary(holdings: list[Holding], include_swing_pick: bool = True) -
     """
     sentiment, _ = _market_section()
     summaries = [build_summary(analyze_holding(holding), sentiment) for holding in holdings]
-    summaries.sort(key=lambda s: s.score, reverse=True)
+    summaries.sort(key=lambda s: s.raw_score, reverse=True)
 
     lines: list[str] = [format_market_header(sentiment), ""]
     for summary in summaries:

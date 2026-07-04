@@ -8,6 +8,7 @@ from stock_analyzer.indicators import (
     evaluate_volume_price,
     macd,
     period_high_low,
+    rate_of_change,
     relative_strength_index,
     simple_moving_average,
     support_resistance,
@@ -143,3 +144,12 @@ def test_evaluate_volume_price_strong_downtrend():
 
 def test_evaluate_volume_price_returns_data_missing_when_not_enough():
     assert evaluate_volume_price([100, 101], [100, 100], window=5) == "データ不足"
+
+
+def test_rate_of_change_returns_none_when_not_enough_data():
+    assert rate_of_change([100, 101, 102], period=10) is None
+
+
+def test_rate_of_change_computes_percentage():
+    prices = [100.0] + [0.0] * 8 + [0.0, 110.0]  # 11 points, first is 100, last is 110
+    assert rate_of_change(prices, period=10) == 10.0
