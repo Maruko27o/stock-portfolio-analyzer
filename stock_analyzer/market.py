@@ -13,9 +13,8 @@ FX_TICKER = "JPY=X"
 VIX_TICKER = "^VIX"
 
 
-def fetch_index_change(ticker: str) -> tuple[float | None, float | None]:
-    """Return (current price, daily % change) for `ticker`, or (None, None) if unavailable."""
-    closes = yf.Ticker(ticker).history(period="5d")["Close"].tolist()
+def _change_from_closes(closes: list[float]) -> tuple[float | None, float | None]:
+    """Return (current price, daily % change) from a list of closing prices."""
     if not closes:
         return None, None
     if len(closes) < 2:
@@ -27,10 +26,27 @@ def fetch_index_change(ticker: str) -> tuple[float | None, float | None]:
 
 
 def fetch_market_snapshot() -> dict[str, tuple[float | None, float | None]]:
-    """Fetch current price and daily % change for major indices, USD/JPY, and VIX."""
-    snapshot = {name: fetch_index_change(ticker) for name, ticker in INDEX_TICKERS.items()}
-    snapshot["ドル円"] = fetch_index_change(FX_TICKER)
-    snapshot["VIX"] = fetch_index_change(VIX_TICKER)
+    """Fetch current price and daily % change for major indices, USD/JPY, and VIX.
+
+    All tickers are pulled in a single bulk download instead of one request each.
+    """
+    named_tickers = list(INDEX_TICKERS.items()) + [("ドル円", FX_TICKER), ("VIX", VIX_TICKER)]
+    data = yf.download(
+        [ticker for _, ticker in named_tickers],
+        period="5d",
+        group_by="ticker",
+        auto_adjust=True,
+        progress=False,
+        threads=True,
+    )
+
+    snapshot: dict[str, tuple[float | None, float | None]] = {}
+    for name, ticker in named_tickers:
+        try:
+            closes = data[ticker]["Close"].dropna().tolist()
+        except (KeyError, TypeError):
+            closes = []
+        snapshot[name] = _change_from_closes(closes)
     return snapshot
 
 

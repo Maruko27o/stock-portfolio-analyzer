@@ -2,10 +2,9 @@ name: Daily Portfolio Notification
 
 on:
   schedule:
-    # Weekdays (JST) at 06:00, 10:00, and 12:00. GitHub cron is UTC (JST = UTC+9).
-    - cron: "0 21 * * 0-4" # 06:00 JST Mon-Fri (= 21:00 UTC Sun-Thu)
-    - cron: "0 1 * * 1-5" #  10:00 JST Mon-Fri (= 01:00 UTC Mon-Fri)
-    - cron: "0 3 * * 1-5" #  12:00 JST Mon-Fri (= 03:00 UTC Mon-Fri)
+    # Weekdays (JST) at 13:00 and 21:00. GitHub cron is UTC (JST = UTC+9).
+    - cron: "0 4 * * 1-5" #  13:00 JST Mon-Fri (= 04:00 UTC Mon-Fri)
+    - cron: "0 12 * * 1-5" # 21:00 JST Mon-Fri (= 12:00 UTC Mon-Fri)
   workflow_dispatch: {}
 
 jobs:
