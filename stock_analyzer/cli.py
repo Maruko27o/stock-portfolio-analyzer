@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import argparse
 
-from stock_analyzer.data_fetcher import fetch_closing_prices
+from stock_analyzer.data_fetcher import fetch_closing_prices, fetch_fundamentals
+from stock_analyzer.fundamentals import evaluate_pbr, evaluate_per
 from stock_analyzer.indicators import relative_strength_index, simple_moving_average
 from stock_analyzer.portfolio import load_portfolio
 
@@ -29,7 +30,10 @@ def main() -> None:
 
     holdings = load_portfolio(args.portfolio)
 
-    header = f"{'銘柄':<8}{'保有数':>8}{'現在値':>10}{'SMA20':>10}{'RSI14':>8}  判定"
+    header = (
+        f"{'銘柄':<8}{'保有数':>8}{'現在値':>10}{'SMA20':>10}{'RSI14':>8}  "
+        f"{'テクニカル':<8}{'PER':>8}{'PBR':>8}  ファンダ"
+    )
     print(header)
     print("-" * len(header))
 
@@ -38,14 +42,24 @@ def main() -> None:
         current_price = prices[-1] if prices else None
         sma = simple_moving_average(prices, SMA_WINDOW)
         rsi = relative_strength_index(prices, RSI_PERIOD)
-        signal = evaluate_signal(rsi)
+        technical_signal = evaluate_signal(rsi)
+
+        fundamentals = fetch_fundamentals(holding.symbol)
+        per = fundamentals["per"]
+        pbr = fundamentals["pbr"]
+        per_signal = evaluate_per(per)
+        pbr_signal = evaluate_pbr(pbr)
 
         print(
             f"{holding.symbol:<8}"
             f"{holding.quantity:>8.0f}"
             f"{current_price:>10.2f}"
             f"{sma if sma is not None else 0:>10.2f}"
-            f"{rsi if rsi is not None else 0:>8.1f}  {signal}"
+            f"{rsi if rsi is not None else 0:>8.1f}  "
+            f"{technical_signal:<8}"
+            f"{per if per is not None else 0:>8.1f}"
+            f"{pbr if pbr is not None else 0:>8.1f}  "
+            f"PER:{per_signal} PBR:{pbr_signal}"
         )
 
 
