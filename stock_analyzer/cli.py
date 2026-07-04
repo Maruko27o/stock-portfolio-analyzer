@@ -24,6 +24,7 @@ from stock_analyzer.indicators import (
     simple_moving_average,
     support_resistance,
 )
+from stock_analyzer.market import evaluate_market_sentiment, fetch_market_snapshot
 from stock_analyzer.portfolio import Holding, load_portfolio
 from stock_analyzer.scoring import evaluate_recommendation, total_score
 
@@ -83,6 +84,9 @@ def _build_holding_report(holding: Holding) -> list[str]:
     earnings_growth = fundamentals["earnings_growth"]
     payout_ratio = fundamentals["payout_ratio"]
 
+    sector = fundamentals["sector"]
+    industry = fundamentals["industry"]
+
     next_earnings = fetch_next_earnings_date(holding.symbol)
     days_to_earnings = (next_earnings - date.today()).days if next_earnings else None
 
@@ -110,13 +114,25 @@ def _build_holding_report(holding: Holding) -> list[str]:
         f"({evaluate_payout_ratio(payout_ratio)})",
         f"次回決算日: {next_earnings.isoformat() if next_earnings else 'データ不足'}"
         + (f" (あと{days_to_earnings}日)" if days_to_earnings is not None else ""),
+        f"セクター: {sector or 'データ不足'} / 業種: {industry or 'データ不足'}",
         f"総合スコア: {score}/100 ({recommendation})",
     ]
 
 
+def _build_market_section() -> list[str]:
+    snapshot = fetch_market_snapshot()
+    sentiment = evaluate_market_sentiment(snapshot)
+
+    lines = ["【市場環境】", f"市場全体: {sentiment}"]
+    for name, (price, change) in snapshot.items():
+        lines.append(f"{name}: {_fmt(price)} ({_fmt(change, '{:+.2f}%')})")
+    return lines
+
+
 def generate_report(holdings: list[Holding]) -> list[str]:
-    """Build the analysis report as a list of lines, one block per holding."""
-    lines: list[str] = []
+    """Build the analysis report as a list of lines: a market section, then one block per holding."""
+    lines: list[str] = _build_market_section()
+    lines.append("")
     for holding in holdings:
         lines.extend(_build_holding_report(holding))
         lines.append("")

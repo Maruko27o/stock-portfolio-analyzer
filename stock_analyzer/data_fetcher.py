@@ -11,8 +11,8 @@ def fetch_price_history(symbol: str, period: str = "1y") -> pd.DataFrame:
     return yf.Ticker(symbol).history(period=period)
 
 
-def fetch_fundamentals(symbol: str) -> dict[str, float | None]:
-    """Fetch valuation, profitability, and dividend metrics for `symbol`. Missing fields are None."""
+def fetch_fundamentals(symbol: str) -> dict[str, float | str | None]:
+    """Fetch valuation, profitability, dividend, and sector metrics for `symbol`. Missing fields are None."""
     info = yf.Ticker(symbol).info
     return {
         "per": info.get("trailingPE"),
@@ -25,6 +25,8 @@ def fetch_fundamentals(symbol: str) -> dict[str, float | None]:
         "revenue_growth": info.get("revenueGrowth"),
         "earnings_growth": info.get("earningsGrowth"),
         "payout_ratio": info.get("payoutRatio"),
+        "sector": info.get("sector"),
+        "industry": info.get("industry"),
     }
 
 
