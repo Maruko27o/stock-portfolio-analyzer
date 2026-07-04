@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 
 from stock_analyzer.analysis import HoldingAnalysis, analyze_holding
+from stock_analyzer.data_fetcher import fetch_fundamentals
 from stock_analyzer.fundamentals import (
     evaluate_growth,
     evaluate_payout_ratio,
@@ -16,9 +17,10 @@ from stock_analyzer.indicators import (
     evaluate_macd,
     evaluate_price_position,
 )
+from stock_analyzer.flex import holding_bubble, market_bubble, swing_bubble, to_flex_messages
 from stock_analyzer.market import evaluate_market_sentiment, fetch_market_snapshot
 from stock_analyzer.portfolio import Holding, load_portfolio
-from stock_analyzer.screener import build_swing_section
+from stock_analyzer.screener import build_swing_section, top_swing_picks
 from stock_analyzer.scoring import evaluate_recommendation, total_score
 from stock_analyzer.summary import build_summary, format_market_header, format_summary
 
@@ -97,6 +99,40 @@ def generate_summary(holdings: list[Holding], include_swing_pick: bool = True) -
     if include_swing_pick:
         lines.extend(build_swing_section())
     return lines
+
+
+def generate_flex_messages(holdings: list[Holding], include_swing_pick: bool = True) -> list[dict]:
+    """Build LINE Flex message objects: a market card, one card per holding, and a swing card."""
+    snapshot = fetch_market_snapshot()
+    sentiment = evaluate_market_sentiment(snapshot)
+
+    summaries = [build_summary(analyze_holding(holding), sentiment) for holding in holdings]
+    summaries.sort(key=lambda s: s.raw_score, reverse=True)
+
+    bubbles = [market_bubble(sentiment, snapshot)]
+    bubbles.extend(holding_bubble(summary) for summary in summaries)
+
+    if include_swing_pick:
+        picks = top_swing_picks()
+        if picks:
+            pick_dicts = []
+            for candidate in picks:
+                try:
+                    name = fetch_fundamentals(candidate.symbol)["name"]
+                except Exception:
+                    name = None
+                heading = f"{candidate.symbol} {name}" if name else candidate.symbol
+                pick_dicts.append(
+                    {
+                        "heading": heading,
+                        "score": candidate.score,
+                        "current_price": candidate.current_price,
+                        "reasons": candidate.reasons,
+                    }
+                )
+            bubbles.append(swing_bubble(pick_dicts))
+
+    return to_flex_messages(bubbles, alt_text="株ポートフォリオ分析")
 
 
 def main() -> None:
