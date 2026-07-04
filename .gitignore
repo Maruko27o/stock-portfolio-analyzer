@@ -4,3 +4,8 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+
+# Secrets and real portfolio data must never be committed.
+.env
+*.env
+portfolio.csv
