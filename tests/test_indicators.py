@@ -5,11 +5,13 @@ from stock_analyzer.indicators import (
     evaluate_macd,
     evaluate_price_position,
     evaluate_volume,
+    evaluate_volume_price,
     macd,
     period_high_low,
     relative_strength_index,
     simple_moving_average,
     support_resistance,
+    volume_trend,
 )
 
 
@@ -105,3 +107,39 @@ def test_period_high_low_returns_max_and_min():
 
 def test_period_high_low_returns_none_when_empty():
     assert period_high_low([], []) == (None, None)
+
+
+def test_volume_trend_returns_none_when_not_enough_data():
+    assert volume_trend([100.0] * 10, long_window=25) is None
+
+
+def test_volume_trend_above_one_when_recent_volume_higher():
+    volumes = [100.0] * 20 + [300.0] * 5
+    assert volume_trend(volumes, short_window=5, long_window=25) > 1.0
+
+
+def test_volume_trend_below_one_when_recent_volume_lower():
+    volumes = [300.0] * 20 + [100.0] * 5
+    assert volume_trend(volumes, short_window=5, long_window=25) < 1.0
+
+
+def test_evaluate_volume_price_strong_uptrend():
+    closes = [100, 101, 102, 103, 104, 108]
+    volumes = [100, 100, 100, 100, 100, 200, 200, 200, 200, 200]
+    assert evaluate_volume_price(closes, volumes, window=5) == "価格上昇×出来高増加(強い上昇)"
+
+
+def test_evaluate_volume_price_weak_uptrend():
+    closes = [100, 101, 102, 103, 104, 108]
+    volumes = [200, 200, 200, 200, 200, 100, 100, 100, 100, 100]
+    assert evaluate_volume_price(closes, volumes, window=5) == "価格上昇×出来高減少(勢い弱い)"
+
+
+def test_evaluate_volume_price_strong_downtrend():
+    closes = [108, 104, 103, 102, 101, 100]
+    volumes = [100, 100, 100, 100, 100, 200, 200, 200, 200, 200]
+    assert evaluate_volume_price(closes, volumes, window=5) == "価格下落×出来高増加(強い下落)"
+
+
+def test_evaluate_volume_price_returns_data_missing_when_not_enough():
+    assert evaluate_volume_price([100, 101], [100, 100], window=5) == "データ不足"

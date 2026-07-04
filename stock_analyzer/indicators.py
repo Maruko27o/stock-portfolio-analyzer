@@ -145,6 +145,44 @@ def evaluate_volume(volumes: list[float], window: int = 20) -> str:
     return "平常"
 
 
+def volume_trend(volumes: list[float], short_window: int = 5, long_window: int = 25) -> float | None:
+    """Return the ratio of recent average volume to the longer-term average, or None if not enough data.
+
+    A value above 1 means volume is trending up (rising interest); below 1 means it is fading.
+    """
+    if len(volumes) < long_window:
+        return None
+    recent = sum(volumes[-short_window:]) / short_window
+    base = sum(volumes[-long_window:]) / long_window
+    if base == 0:
+        return None
+    return recent / base
+
+
+def evaluate_volume_price(closes: list[float], volumes: list[float], window: int = 5) -> str:
+    """Combine short-term price direction with volume direction into a conviction signal.
+
+    Rising price on rising volume is a strong move; rising price on falling volume lacks
+    conviction. Falling price on rising volume signals real selling pressure, while falling
+    price on shrinking volume suggests the decline is losing steam.
+    """
+    if len(closes) < window + 1 or len(volumes) < 2 * window:
+        return "データ不足"
+
+    price_change = closes[-1] - closes[-window - 1]
+    recent_vol = sum(volumes[-window:]) / window
+    prev_vol = sum(volumes[-2 * window : -window]) / window
+    volume_rising = recent_vol > prev_vol
+
+    if price_change > 0 and volume_rising:
+        return "価格上昇×出来高増加(強い上昇)"
+    if price_change > 0 and not volume_rising:
+        return "価格上昇×出来高減少(勢い弱い)"
+    if price_change < 0 and volume_rising:
+        return "価格下落×出来高増加(強い下落)"
+    return "価格下落×出来高減少(下げ渋り)"
+
+
 def support_resistance(highs: list[float], lows: list[float], window: int = 60) -> SupportResistance | None:
     """Return the support (window low) and resistance (window high) over the last `window` days."""
     if len(highs) < window or len(lows) < window:
