@@ -2,7 +2,12 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from stock_analyzer.screener import screen_universe, swing_score, top_swing_pick
+from stock_analyzer.screener import (
+    screen_universe,
+    swing_score,
+    top_swing_pick,
+    top_swing_picks,
+)
 
 
 def _series(closes):
@@ -65,3 +70,23 @@ def test_top_swing_pick_returns_highest_scoring():
 def test_top_swing_pick_returns_none_when_no_candidates():
     with patch("stock_analyzer.screener._download_history", return_value={}):
         assert top_swing_pick(["AAA.T"]) is None
+
+
+def test_top_swing_picks_returns_sorted_top_n():
+    up_strong = [100.0 + i * 1.5 for i in range(60)]
+    up_mild = [100.0 + i * 0.3 for i in range(60)]
+    down = [160.0 - i for i in range(60)]
+    fake_data = {
+        "STRONG.T": pd.DataFrame(_series(up_strong)),
+        "MILD.T": pd.DataFrame(_series(up_mild)),
+        "DOWN.T": pd.DataFrame(_series(down)),
+    }
+
+    with patch("stock_analyzer.screener._download_history", return_value=fake_data):
+        picks = top_swing_picks(["STRONG.T", "MILD.T", "DOWN.T"], n=2)
+
+    assert len(picks) == 2
+    assert [p.symbol for p in picks] == sorted(
+        [p.symbol for p in picks], key=lambda s: {"STRONG.T": 0, "MILD.T": 1}[s]
+    )
+    assert picks[0].score >= picks[1].score

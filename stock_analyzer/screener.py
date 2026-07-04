@@ -165,13 +165,18 @@ def screen_universe(tickers: list[str]) -> list[SwingCandidate]:
     return candidates
 
 
-def top_swing_pick(tickers: list[str] | None = None) -> SwingCandidate | None:
-    """Return the single highest-scoring swing candidate, or None if none qualify."""
+def top_swing_picks(tickers: list[str] | None = None, n: int = 3) -> list[SwingCandidate]:
+    """Return the top `n` highest-scoring swing candidates, best first."""
     universe = tickers if tickers is not None else load_universe()
     candidates = screen_universe(universe)
-    if not candidates:
-        return None
-    return max(candidates, key=lambda c: c.score)
+    candidates.sort(key=lambda c: c.score, reverse=True)
+    return candidates[:n]
+
+
+def top_swing_pick(tickers: list[str] | None = None) -> SwingCandidate | None:
+    """Return the single highest-scoring swing candidate, or None if none qualify."""
+    picks = top_swing_picks(tickers, n=1)
+    return picks[0] if picks else None
 
 
 def _price(value: float | None) -> str:
@@ -182,30 +187,36 @@ def _price(value: float | None) -> str:
     return f"{value:,.2f}"
 
 
-def format_swing_pick(candidate: SwingCandidate) -> str:
-    """Render the swing pick as a compact LINE section, fetching the company name."""
-    try:
-        name = fetch_fundamentals(candidate.symbol)["name"]
-    except Exception:
-        name = None
+RANK_EMOJI = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"]
+DISCLAIMER = "※保有していない銘柄です。機械的スコアによる候補であり、値上がりを保証するものではありません。投資は自己責任で。"
 
-    heading = f"{candidate.symbol} {name}" if name else candidate.symbol
-    lines = [
-        "━━━━━━━━━━━━",
-        "🔎 本日の注目候補（スイング）",
-        f"【{heading}】",
-        f"現在：{_price(candidate.current_price)}",
-        f"スコア：{candidate.score}点",
-    ]
-    lines.extend(f"・{reason}" for reason in candidate.reasons)
-    lines.append("※保有していない銘柄です。機械的スコアによる候補であり、値上がりを保証するものではありません。投資は自己責任で。")
+
+def format_swing_picks(candidates: list[SwingCandidate]) -> str:
+    """Render the top swing candidates as one compact LINE section, fetching each name."""
+    lines = ["━━━━━━━━━━━━", "🔎 本日の注目候補（スイング）TOP3"]
+
+    for index, candidate in enumerate(candidates):
+        try:
+            name = fetch_fundamentals(candidate.symbol)["name"]
+        except Exception:
+            name = None
+        heading = f"{candidate.symbol} {name}" if name else candidate.symbol
+        rank = RANK_EMOJI[index] if index < len(RANK_EMOJI) else f"{index + 1}."
+
+        lines.append("")
+        lines.append(f"{rank}【{heading}】 {candidate.score}点")
+        lines.append(f"現在：{_price(candidate.current_price)}")
+        lines.extend(f"・{reason}" for reason in candidate.reasons)
+
+    lines.append("")
+    lines.append(DISCLAIMER)
     lines.append("━━━━━━━━━━━━")
     return "\n".join(lines)
 
 
 def build_swing_section() -> list[str]:
-    """Scan the universe and return the formatted swing-pick lines, or an empty list."""
-    pick = top_swing_pick()
-    if pick is None:
+    """Scan the universe and return the formatted top-3 swing-pick lines, or an empty list."""
+    picks = top_swing_picks()
+    if not picks:
         return []
-    return [format_swing_pick(pick)]
+    return [format_swing_picks(picks)]

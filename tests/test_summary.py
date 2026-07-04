@@ -125,3 +125,11 @@ def test_format_summary_contains_key_sections():
     assert "AI評価" in text
     assert "■判断" in text
     assert "■判断理由" in text
+
+
+def test_format_summary_prepends_rating_emoji():
+    from stock_analyzer.summary import RATING_EMOJI
+
+    summary = build_summary(_analysis(), market_sentiment="強気")
+    text = format_summary(summary)
+    assert RATING_EMOJI[summary.rating] + "【" in text
