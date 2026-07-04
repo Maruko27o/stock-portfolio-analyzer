@@ -60,6 +60,8 @@ class HoldingAnalysis:
     revenue_growth: float | None
     earnings_growth: float | None
     payout_ratio: float | None
+    debt_to_equity: float | None
+    current_ratio: float | None
     sector: str | None
     industry: str | None
     next_earnings: date | None
@@ -112,6 +114,8 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
         revenue_growth=fundamentals["revenue_growth"],
         earnings_growth=fundamentals["earnings_growth"],
         payout_ratio=fundamentals["payout_ratio"],
+        debt_to_equity=fundamentals["debt_to_equity"],
+        current_ratio=fundamentals["current_ratio"],
         sector=fundamentals["sector"],
         industry=fundamentals["industry"],
         next_earnings=next_earnings,

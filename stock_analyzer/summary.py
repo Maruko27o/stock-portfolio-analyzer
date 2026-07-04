@@ -108,10 +108,24 @@ def build_signals(analysis: HoldingAnalysis, market_sentiment: str) -> list[Sign
         signals.append(Signal(5, "PBR割安") if analysis.pbr <= 1 else Signal(-2, "PBR割高"))
     if analysis.roe is not None:
         signals.append(Signal(6, "ROE良好") if analysis.roe >= 0.08 else Signal(-2, "ROEが低い"))
+    if analysis.roa is not None:
+        signals.append(Signal(5, "ROA良好") if analysis.roa >= 0.05 else Signal(-2, "ROAが低い"))
     if analysis.revenue_growth is not None:
         signals.append(Signal(4, "増収") if analysis.revenue_growth > 0 else Signal(-4, "減収"))
     if analysis.earnings_growth is not None:
         signals.append(Signal(5, "増益") if analysis.earnings_growth > 0 else Signal(-5, "減益"))
+    if analysis.dividend_yield is not None and analysis.dividend_yield >= 3.0:
+        signals.append(Signal(3, f"高配当利回り{analysis.dividend_yield:.1f}%"))
+    if analysis.debt_to_equity is not None:
+        if analysis.debt_to_equity <= 100:
+            signals.append(Signal(3, "財務健全(低負債)"))
+        elif analysis.debt_to_equity >= 200:
+            signals.append(Signal(-3, "負債が多い"))
+    if analysis.current_ratio is not None:
+        if analysis.current_ratio >= 1.5:
+            signals.append(Signal(2, "短期の支払い余力あり"))
+        elif analysis.current_ratio < 1.0:
+            signals.append(Signal(-3, "短期の支払い能力に注意"))
 
     # --- Market ---
     if market_sentiment == "強気":
@@ -235,6 +249,8 @@ def detect_risks(analysis: HoldingAnalysis) -> list[str]:
         risks.append(f"含み損{profit:.1f}%")
     if "強い下落" in analysis.volume_price_signal:
         risks.append("出来高増加を伴う下落")
+    if analysis.current_ratio is not None and analysis.current_ratio < 1.0:
+        risks.append("流動比率1.0未満(短期支払い能力に注意)")
 
     return risks
 

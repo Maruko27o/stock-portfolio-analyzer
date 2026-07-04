@@ -6,6 +6,9 @@ import time
 from stock_analyzer.analysis import HoldingAnalysis, analyze_holding
 from stock_analyzer.data_fetcher import fetch_fundamentals
 from stock_analyzer.fundamentals import (
+    evaluate_current_ratio,
+    evaluate_debt_to_equity,
+    evaluate_dividend_yield,
     evaluate_growth,
     evaluate_payout_ratio,
     evaluate_pbr,
@@ -56,7 +59,10 @@ def _build_detailed_block(a: HoldingAnalysis) -> list[str]:
         f"EPS: {_fmt(a.eps)} / BPS: {_fmt(a.bps)}",
         f"売上成長率: {_pct(a.revenue_growth, '{:+.1f}%')}({evaluate_growth(a.revenue_growth, '増収', '減収')}) "
         f"/ 利益成長率: {_pct(a.earnings_growth, '{:+.1f}%')}({evaluate_growth(a.earnings_growth, '増益', '減益')})",
-        f"配当性向: {_pct(a.payout_ratio)}({evaluate_payout_ratio(a.payout_ratio)})",
+        f"配当利回り: {_fmt(a.dividend_yield, '{:.2f}%')}({evaluate_dividend_yield(a.dividend_yield)}) "
+        f"/ 配当性向: {_pct(a.payout_ratio)}({evaluate_payout_ratio(a.payout_ratio)})",
+        f"負債資本倍率: {_fmt(a.debt_to_equity, '{:.0f}%')}({evaluate_debt_to_equity(a.debt_to_equity)}) "
+        f"/ 流動比率: {_fmt(a.current_ratio, '{:.2f}')}({evaluate_current_ratio(a.current_ratio)})",
         f"次回決算日: {a.next_earnings.isoformat() if a.next_earnings else 'データ不足'}"
         + (f" (あと{a.days_to_earnings}日)" if a.days_to_earnings is not None else ""),
         f"セクター: {a.sector or 'データ不足'} / 業種: {a.industry or 'データ不足'}",

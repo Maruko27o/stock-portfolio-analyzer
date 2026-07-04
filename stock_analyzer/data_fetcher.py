@@ -26,6 +26,8 @@ def fetch_fundamentals(symbol: str) -> dict[str, float | str | None]:
         "revenue_growth": info.get("revenueGrowth"),
         "earnings_growth": info.get("earningsGrowth"),
         "payout_ratio": info.get("payoutRatio"),
+        "debt_to_equity": info.get("debtToEquity"),
+        "current_ratio": info.get("currentRatio"),
         "sector": info.get("sector"),
         "industry": info.get("industry"),
     }
