@@ -5,8 +5,8 @@ import json
 import os
 import sys
 
-from stock_analyzer.cli import generate_summary
-from stock_analyzer.notifier import send_line_broadcast
+from stock_analyzer.cli import generate_flex_messages
+from stock_analyzer.notifier import broadcast_messages
 from stock_analyzer.portfolio import Holding, load_portfolio, load_portfolio_from_sheet
 
 LINE_TOKEN_ENV_VAR = "LINE_CHANNEL_ACCESS_TOKEN"
@@ -46,9 +46,9 @@ def main() -> None:
         raise SystemExit(1)
 
     holdings = load_holdings(args.portfolio)
-    message = "\n".join(generate_summary(holdings))
+    messages = generate_flex_messages(holdings)
 
-    send_line_broadcast(message, token)
+    broadcast_messages(messages, token)
     print("LINEへの通知を送信しました")
 
 

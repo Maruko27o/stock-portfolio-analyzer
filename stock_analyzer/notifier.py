@@ -36,6 +36,27 @@ def split_message(text: str, limit: int = LINE_TEXT_LIMIT) -> list[str]:
     return [chunk for chunk in chunks if chunk.strip()]
 
 
+def broadcast_messages(messages: list[dict], channel_access_token: str) -> None:
+    """Broadcast pre-built LINE message objects (text, flex, ...), max 5 per request."""
+    if not messages:
+        return
+    headers = {
+        "Authorization": f"Bearer {channel_access_token}",
+        "Content-Type": "application/json",
+    }
+
+    for start in range(0, len(messages), MESSAGES_PER_REQUEST):
+        batch = messages[start : start + MESSAGES_PER_REQUEST]
+        response = requests.post(
+            LINE_BROADCAST_URL,
+            headers=headers,
+            json={"messages": batch},
+            timeout=10,
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(f"LINE API error {response.status_code}: {response.text}")
+
+
 def send_line_broadcast(message: str, channel_access_token: str) -> None:
     """Send a text message to all friends of the LINE bot via the Broadcast API.
 
@@ -43,18 +64,4 @@ def send_line_broadcast(message: str, channel_access_token: str) -> None:
     notification never exceeds LINE's per-message character limit.
     """
     chunks = split_message(message) or [message]
-    headers = {
-        "Authorization": f"Bearer {channel_access_token}",
-        "Content-Type": "application/json",
-    }
-
-    for start in range(0, len(chunks), MESSAGES_PER_REQUEST):
-        batch = chunks[start : start + MESSAGES_PER_REQUEST]
-        response = requests.post(
-            LINE_BROADCAST_URL,
-            headers=headers,
-            json={"messages": [{"type": "text", "text": chunk} for chunk in batch]},
-            timeout=10,
-        )
-        if response.status_code >= 400:
-            raise RuntimeError(f"LINE API error {response.status_code}: {response.text}")
+    broadcast_messages([{"type": "text", "text": chunk} for chunk in chunks], channel_access_token)
