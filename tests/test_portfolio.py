@@ -1,6 +1,21 @@
 from unittest.mock import MagicMock, patch
 
-from stock_analyzer.portfolio import load_portfolio, load_portfolio_from_sheet
+from stock_analyzer.portfolio import (
+    load_portfolio,
+    load_portfolio_from_sheet,
+    normalize_symbol,
+)
+
+
+def test_normalize_symbol_appends_t_for_numeric_japanese_codes():
+    assert normalize_symbol("7203") == "7203.T"
+    assert normalize_symbol(" 6758 ") == "6758.T"
+    assert normalize_symbol("142a") == "142A.T"
+
+
+def test_normalize_symbol_leaves_us_tickers_and_existing_suffix():
+    assert normalize_symbol("aapl") == "AAPL"
+    assert normalize_symbol("7203.T") == "7203.T"
 
 
 def test_load_portfolio_parses_csv_rows(tmp_path):
@@ -35,6 +50,19 @@ def test_load_portfolio_reads_optional_name_column(tmp_path):
 
     assert holdings[0].name == "トヨタ自動車"
     assert holdings[1].name is None
+
+
+def test_load_portfolio_auto_appends_t_suffix(tmp_path):
+    csv_path = tmp_path / "portfolio.csv"
+    csv_path.write_text(
+        "symbol,quantity,avg_cost\n7203,100,3000\nAAPL,10,150\n",
+        encoding="utf-8",
+    )
+
+    holdings = load_portfolio(str(csv_path))
+
+    assert holdings[0].symbol == "7203.T"
+    assert holdings[1].symbol == "AAPL"
 
 
 def test_load_portfolio_from_sheet_parses_rows():
