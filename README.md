@@ -18,6 +18,11 @@
 - テクニカル(RSI)とファンダメンタル(PER・PBR)を0-100点のスコアに統合
 - スコアに基づく総合判定(買い / 売り / 様子見)をコンソールに表示
 
+**フェーズ4・5: 定期実行 + LINE通知**
+- GitHub Actionsで毎日決まった時刻(デフォルト: 07:00 JST)に自動実行
+- 分析結果をLINE Messaging API(Broadcast API)経由で通知
+- 保有銘柄データ・LINEのチャネルアクセストークンはGitHub Actionsの Secrets で管理し、コードやログには一切出力しない
+
 ## セットアップ
 
 ```bash
@@ -49,8 +54,17 @@ python -m pytest
 - **APIキー・トークン(LINE Notifyのトークンなど)はコードに直接書かず、`.env` など `.gitignore` 対象のファイルや環境変数で管理してください。**
 - このリポジトリはPublicのため、上記を守らないとコード・データが誰でも閲覧可能な状態で公開されます。
 
+## GitHub Actionsのセットアップ(定期実行 + LINE通知)
+
+以下2つをリポジトリの Settings → Secrets and variables → Actions → New repository secret から登録してください(値はGitHubの画面上で直接入力し、他の場所に貼り付けないでください)。
+
+| Secret名 | 内容 |
+| --- | --- |
+| `PORTFOLIO_CSV` | 実際の保有銘柄CSVの中身(`symbol,quantity,avg_cost` 形式) |
+| `LINE_CHANNEL_ACCESS_TOKEN` | LINE Developersで発行したチャネルアクセストークン(長期) |
+
+登録後は `.github/workflows/daily-report.yml` のcronで指定した時刻に自動実行されます。手動で試したい場合はGitHubの Actions タブから `workflow_dispatch` で即時実行できます。
+
 ## 今後のロードマップ
 
-- [ ] 毎日決まった時間に自動実行するスケジューラ
-- [ ] LINE Notify / LINE Messaging APIによる通知連携
 - [ ] 保有銘柄の入力をCSVからWeb UIまたは証券口座連携に置き換え
