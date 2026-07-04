@@ -18,6 +18,7 @@ from stock_analyzer.indicators import (
 )
 from stock_analyzer.market import evaluate_market_sentiment, fetch_market_snapshot
 from stock_analyzer.portfolio import Holding, load_portfolio
+from stock_analyzer.screener import build_swing_section
 from stock_analyzer.scoring import evaluate_recommendation, total_score
 from stock_analyzer.summary import build_summary, format_market_header, format_summary
 
@@ -80,7 +81,7 @@ def generate_report(holdings: list[Holding]) -> list[str]:
     return lines
 
 
-def generate_summary(holdings: list[Holding]) -> list[str]:
+def generate_summary(holdings: list[Holding], include_swing_pick: bool = True) -> list[str]:
     """Build the concise, AI-selected summary report — used for LINE notifications."""
     sentiment, _ = _market_section()
     lines: list[str] = [format_market_header(sentiment), ""]
@@ -88,6 +89,8 @@ def generate_summary(holdings: list[Holding]) -> list[str]:
         analysis = analyze_holding(holding)
         lines.append(format_summary(build_summary(analysis, sentiment)))
         lines.append("")
+    if include_swing_pick:
+        lines.extend(build_swing_section())
     return lines
 
 
