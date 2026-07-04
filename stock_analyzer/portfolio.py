@@ -20,6 +20,19 @@ def _row_name(row: dict) -> str | None:
     return name or None
 
 
+def normalize_symbol(raw: str) -> str:
+    """Normalize a ticker, auto-appending the Tokyo '.T' suffix for Japanese codes.
+
+    Japanese stock codes contain digits (e.g. '7203', or newer alphanumeric like
+    '142A') and get '.T' added so the user can omit it. Tickers that already have a
+    suffix ('7203.T') or are purely alphabetic ('AAPL') are left unchanged.
+    """
+    symbol = raw.strip().upper()
+    if symbol and "." not in symbol and any(ch.isdigit() for ch in symbol):
+        symbol += ".T"
+    return symbol
+
+
 def load_portfolio(path: str) -> list[Holding]:
     """Load holdings from a CSV file with columns: symbol,quantity,avg_cost[,name]."""
     holdings = []
@@ -28,7 +41,7 @@ def load_portfolio(path: str) -> list[Holding]:
         for row in reader:
             holdings.append(
                 Holding(
-                    symbol=row["symbol"].strip().upper(),
+                    symbol=normalize_symbol(row["symbol"]),
                     quantity=float(row["quantity"]),
                     avg_cost=float(row["avg_cost"]),
                     name=_row_name(row),
@@ -54,7 +67,7 @@ def load_portfolio_from_sheet(sheet_id: str, service_account_info: dict) -> list
             continue
         holdings.append(
             Holding(
-                symbol=symbol.upper(),
+                symbol=normalize_symbol(symbol),
                 quantity=float(row["quantity"]),
                 avg_cost=float(row["avg_cost"]),
                 name=_row_name(row),
