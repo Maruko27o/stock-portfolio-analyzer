@@ -6,6 +6,7 @@ from stock_analyzer.data_fetcher import fetch_closing_prices, fetch_fundamentals
 from stock_analyzer.fundamentals import evaluate_pbr, evaluate_per
 from stock_analyzer.indicators import relative_strength_index, simple_moving_average
 from stock_analyzer.portfolio import load_portfolio
+from stock_analyzer.scoring import evaluate_recommendation, total_score
 
 SMA_WINDOW = 20
 RSI_PERIOD = 14
@@ -32,7 +33,7 @@ def main() -> None:
 
     header = (
         f"{'銘柄':<8}{'保有数':>8}{'現在値':>10}{'SMA20':>10}{'RSI14':>8}  "
-        f"{'テクニカル':<8}{'PER':>8}{'PBR':>8}  ファンダ"
+        f"{'テクニカル':<8}{'PER':>8}{'PBR':>8}  {'ファンダ':<18}{'スコア':>6}  総合判定"
     )
     print(header)
     print("-" * len(header))
@@ -50,6 +51,9 @@ def main() -> None:
         per_signal = evaluate_per(per)
         pbr_signal = evaluate_pbr(pbr)
 
+        score = total_score(rsi, per, pbr)
+        recommendation = evaluate_recommendation(score)
+
         print(
             f"{holding.symbol:<8}"
             f"{holding.quantity:>8.0f}"
@@ -59,7 +63,8 @@ def main() -> None:
             f"{technical_signal:<8}"
             f"{per if per is not None else 0:>8.1f}"
             f"{pbr if pbr is not None else 0:>8.1f}  "
-            f"PER:{per_signal} PBR:{pbr_signal}"
+            f"{f'PER:{per_signal} PBR:{pbr_signal}':<18}"
+            f"{score:>6}  {recommendation}"
         )
 
 
