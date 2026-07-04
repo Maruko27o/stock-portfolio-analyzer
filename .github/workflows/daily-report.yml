@@ -1,0 +1,29 @@
+name: Daily Portfolio Notification
+
+on:
+  schedule:
+    - cron: "0 22 * * *" # 22:00 UTC = 07:00 JST (next day)
+  workflow_dispatch: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write portfolio file from secret
+        env:
+          PORTFOLIO_CSV: ${{ secrets.PORTFOLIO_CSV }}
+        run: printf '%s\n' "$PORTFOLIO_CSV" > portfolio.csv
+
+      - name: Send LINE notification
+        env:
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+        run: python -m stock_analyzer.daily_notify --portfolio portfolio.csv
