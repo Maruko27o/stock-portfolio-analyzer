@@ -2,9 +2,20 @@ from __future__ import annotations
 
 import argparse
 
-from stock_analyzer.data_fetcher import fetch_closing_prices, fetch_fundamentals
+from stock_analyzer.data_fetcher import fetch_fundamentals, fetch_price_history
 from stock_analyzer.fundamentals import evaluate_pbr, evaluate_per
-from stock_analyzer.indicators import relative_strength_index, simple_moving_average
+from stock_analyzer.indicators import (
+    bollinger_sigma,
+    evaluate_bollinger,
+    evaluate_macd,
+    evaluate_price_position,
+    evaluate_volume,
+    macd,
+    period_high_low,
+    relative_strength_index,
+    simple_moving_average,
+    support_resistance,
+)
 from stock_analyzer.portfolio import Holding, load_portfolio
 from stock_analyzer.scoring import evaluate_recommendation, total_score
 
@@ -24,43 +35,61 @@ def evaluate_signal(rsi: float | None) -> str:
     return "様子見"
 
 
-def generate_report(holdings: list[Holding]) -> list[str]:
-    """Build the analysis report as a list of lines, one per holding plus a header."""
-    header = (
-        f"{'銘柄':<8}{'保有数':>8}{'現在値':>10}{'SMA20':>10}{'RSI14':>8}  "
-        f"{'テクニカル':<8}{'PER':>8}{'PBR':>8}  {'ファンダ':<18}{'スコア':>6}  総合判定"
+def _fmt(value: float | None, spec: str = "{:.2f}") -> str:
+    return spec.format(value) if value is not None else "データ不足"
+
+
+def _build_holding_report(holding: Holding) -> list[str]:
+    history = fetch_price_history(holding.symbol)
+    closes = history["Close"].tolist()
+    highs = history["High"].tolist()
+    lows = history["Low"].tolist()
+    volumes = history["Volume"].tolist()
+
+    current_price = closes[-1] if closes else None
+    sma = simple_moving_average(closes, SMA_WINDOW)
+    rsi = relative_strength_index(closes, RSI_PERIOD)
+    technical_signal = evaluate_signal(rsi)
+
+    macd_signal = evaluate_macd(macd(closes))
+    bollinger_signal = evaluate_bollinger(bollinger_sigma(closes))
+    volume_signal = evaluate_volume(volumes)
+
+    levels = support_resistance(highs, lows)
+    price_position = (
+        evaluate_price_position(current_price, levels) if current_price is not None else "データ不足"
     )
-    lines = [header, "-" * len(header)]
+    period_high, period_low = period_high_low(highs, lows)
 
+    fundamentals = fetch_fundamentals(holding.symbol)
+    per = fundamentals["per"]
+    pbr = fundamentals["pbr"]
+    per_signal = evaluate_per(per)
+    pbr_signal = evaluate_pbr(pbr)
+
+    score = total_score(rsi, per, pbr)
+    recommendation = evaluate_recommendation(score)
+
+    return [
+        f"■ {holding.symbol} ({holding.quantity:.0f}株 @{holding.avg_cost:.2f})",
+        f"現在値: {_fmt(current_price)}",
+        f"SMA20: {_fmt(sma)} / RSI14: {_fmt(rsi, '{:.1f}')} ({technical_signal})",
+        f"MACD: {macd_signal}",
+        f"ボリンジャーバンド: {bollinger_signal}",
+        f"出来高: {volume_signal}",
+        f"価格位置: {price_position}",
+        f"52週高値/安値: {_fmt(period_high)} / {_fmt(period_low)}",
+        f"PER: {_fmt(per, '{:.1f}')}({per_signal}) / PBR: {_fmt(pbr, '{:.1f}')}({pbr_signal})",
+        f"総合スコア: {score}/100 ({recommendation})",
+    ]
+
+
+def generate_report(holdings: list[Holding]) -> list[str]:
+    """Build the analysis report as a list of lines, one block per holding."""
+    lines: list[str] = []
     for holding in holdings:
-        prices = fetch_closing_prices(holding.symbol)
-        current_price = prices[-1] if prices else None
-        sma = simple_moving_average(prices, SMA_WINDOW)
-        rsi = relative_strength_index(prices, RSI_PERIOD)
-        technical_signal = evaluate_signal(rsi)
-
-        fundamentals = fetch_fundamentals(holding.symbol)
-        per = fundamentals["per"]
-        pbr = fundamentals["pbr"]
-        per_signal = evaluate_per(per)
-        pbr_signal = evaluate_pbr(pbr)
-
-        score = total_score(rsi, per, pbr)
-        recommendation = evaluate_recommendation(score)
-
-        lines.append(
-            f"{holding.symbol:<8}"
-            f"{holding.quantity:>8.0f}"
-            f"{current_price:>10.2f}"
-            f"{sma if sma is not None else 0:>10.2f}"
-            f"{rsi if rsi is not None else 0:>8.1f}  "
-            f"{technical_signal:<8}"
-            f"{per if per is not None else 0:>8.1f}"
-            f"{pbr if pbr is not None else 0:>8.1f}  "
-            f"{f'PER:{per_signal} PBR:{pbr_signal}':<18}"
-            f"{score:>6}  {recommendation}"
-        )
-
+        lines.extend(_build_holding_report(holding))
+        lines.append("")
     return lines
 
 
