@@ -33,8 +33,14 @@ def test_swing_score_uptrend_scores_higher_than_downtrend():
     down_score, _ = swing_score(down, [c + 1 for c in down], [c - 1 for c in down], volumes)
 
     assert up_score > down_score
-    assert 0 <= up_score <= 100
     assert len(up_reasons) >= 1
+
+
+def test_swing_candidate_display_score_is_clamped():
+    from stock_analyzer.screener import SwingCandidate
+
+    assert SwingCandidate("X.T", raw_score=130, reasons=[], current_price=1.0).score == 100
+    assert SwingCandidate("Y.T", raw_score=-20, reasons=[], current_price=1.0).score == 0
 
 
 def test_screen_universe_skips_missing_tickers_and_scores_the_rest():

@@ -11,6 +11,7 @@ from stock_analyzer.indicators import (
     evaluate_macd,
     evaluate_volume_price,
     macd,
+    rate_of_change,
     relative_strength_index,
     simple_moving_average,
     support_resistance,
@@ -24,9 +25,14 @@ MIN_HISTORY = 30
 @dataclass
 class SwingCandidate:
     symbol: str
-    score: int
+    raw_score: int  # uncapped, used for ranking so strong movers separate from ties at 100
     reasons: list[str]
     current_price: float | None
+
+    @property
+    def score(self) -> int:
+        """The 0-100 score shown to the user (the raw score clamped)."""
+        return _clamp(self.raw_score)
 
 
 def load_universe(path: Path = UNIVERSE_FILE) -> list[str]:
@@ -46,10 +52,11 @@ def _clamp(value: int, low: int = 0, high: int = 100) -> int:
 def swing_score(
     closes: list[float], highs: list[float], lows: list[float], volumes: list[float]
 ) -> tuple[int, list[str]] | None:
-    """Score a ticker's short-term swing potential (0-100) from technicals only.
+    """Score a ticker's short-term swing potential from technicals only.
 
-    Returns (score, reasons) where reasons are the strongest bullish factors, or
-    None if there is not enough history to judge.
+    Returns (raw_score, reasons) where raw_score is uncapped (can exceed 100) so
+    that strong movers can be ranked apart from ordinary ones, and reasons are the
+    strongest bullish factors. Returns None if there is not enough history to judge.
     """
     if len(closes) < MIN_HISTORY:
         return None
@@ -119,9 +126,20 @@ def swing_score(
         elif boll <= -2:
             signals.append((3, "バンド下限で反発期待"))
 
-    score = _clamp(50 + sum(points for points, _ in signals))
+    roc = rate_of_change(closes, 10)
+    if roc is not None:
+        if roc >= 10:
+            signals.append((10, f"直近10日で+{roc:.0f}%の強い上昇"))
+        elif roc >= 3:
+            signals.append((5, f"直近10日で+{roc:.0f}%上昇"))
+        elif roc <= -10:
+            signals.append((-10, f"直近10日で{roc:.0f}%下落"))
+        elif roc <= -3:
+            signals.append((-5, "直近10日で下落"))
+
+    raw_score = 50 + sum(points for points, _ in signals)
     reasons = [reason for points, reason in sorted(signals, key=lambda s: s[0], reverse=True) if points > 0]
-    return score, reasons[:4]
+    return raw_score, reasons[:4]
 
 
 def _download_history(tickers: list[str], period: str = "6mo"):
@@ -157,19 +175,21 @@ def screen_universe(tickers: list[str]) -> list[SwingCandidate]:
         result = swing_score(closes, highs, lows, volumes)
         if result is None:
             continue
-        score, reasons = result
+        raw_score, reasons = result
         candidates.append(
-            SwingCandidate(symbol=ticker, score=score, reasons=reasons, current_price=closes[-1])
+            SwingCandidate(
+                symbol=ticker, raw_score=raw_score, reasons=reasons, current_price=closes[-1]
+            )
         )
 
     return candidates
 
 
 def top_swing_picks(tickers: list[str] | None = None, n: int = 3) -> list[SwingCandidate]:
-    """Return the top `n` highest-scoring swing candidates, best first."""
+    """Return the top `n` swing candidates, ranked by uncapped raw score, best first."""
     universe = tickers if tickers is not None else load_universe()
     candidates = screen_universe(universe)
-    candidates.sort(key=lambda c: c.score, reverse=True)
+    candidates.sort(key=lambda c: c.raw_score, reverse=True)
     return candidates[:n]
 
 

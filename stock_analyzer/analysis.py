@@ -16,6 +16,7 @@ from stock_analyzer.indicators import (
     evaluate_volume_price,
     macd,
     period_high_low,
+    rate_of_change,
     relative_strength_index,
     simple_moving_average,
     support_resistance,
@@ -40,6 +41,7 @@ class HoldingAnalysis:
     sma_mid: float | None
     sma_long: float | None
     rsi: float | None
+    momentum: float | None
     macd_result: MACDResult | None
     bollinger: float | None
     volume_signal: str
@@ -90,6 +92,7 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
         sma_mid=simple_moving_average(closes, SMA_MID),
         sma_long=simple_moving_average(closes, SMA_LONG),
         rsi=relative_strength_index(closes, RSI_PERIOD),
+        momentum=rate_of_change(closes, 10),
         macd_result=macd(closes),
         bollinger=bollinger_sigma(closes),
         volume_signal=evaluate_volume(volumes),

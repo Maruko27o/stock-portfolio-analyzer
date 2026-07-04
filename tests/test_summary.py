@@ -23,6 +23,7 @@ def _analysis(**overrides) -> HoldingAnalysis:
         sma_mid=3300.0,
         sma_long=3100.0,
         rsi=58.0,
+        momentum=4.0,
         macd_result=None,
         bollinger=0.5,
         volume_signal="増加",
