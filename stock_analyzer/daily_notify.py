@@ -5,7 +5,7 @@ import json
 import os
 import sys
 
-from stock_analyzer.cli import generate_report
+from stock_analyzer.cli import generate_summary
 from stock_analyzer.notifier import send_line_broadcast
 from stock_analyzer.portfolio import Holding, load_portfolio, load_portfolio_from_sheet
 
@@ -46,7 +46,7 @@ def main() -> None:
         raise SystemExit(1)
 
     holdings = load_holdings(args.portfolio)
-    message = "\n".join(generate_report(holdings))
+    message = "\n".join(generate_summary(holdings))
 
     send_line_broadcast(message, token)
     print("LINEへの通知を送信しました")
