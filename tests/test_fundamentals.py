@@ -1,4 +1,7 @@
 from stock_analyzer.fundamentals import (
+    evaluate_current_ratio,
+    evaluate_debt_to_equity,
+    evaluate_dividend_yield,
     evaluate_growth,
     evaluate_payout_ratio,
     evaluate_pbr,
@@ -75,3 +78,22 @@ def test_evaluate_payout_ratio_returns_high_when_at_or_above_threshold():
 
 def test_evaluate_payout_ratio_returns_data_missing_when_none():
     assert evaluate_payout_ratio(None) == "データ不足"
+
+
+def test_evaluate_dividend_yield_flags_high_yield():
+    assert evaluate_dividend_yield(3.5) == "高配当"
+    assert evaluate_dividend_yield(1.0) == "標準"
+    assert evaluate_dividend_yield(None) == "データ不足"
+
+
+def test_evaluate_debt_to_equity_judges_leverage():
+    assert evaluate_debt_to_equity(80) == "健全(低負債)"
+    assert evaluate_debt_to_equity(150) == "標準"
+    assert evaluate_debt_to_equity(250) == "負債が多い"
+    assert evaluate_debt_to_equity(None) == "データ不足"
+
+
+def test_evaluate_current_ratio_judges_solvency():
+    assert evaluate_current_ratio(1.5) == "支払い余力あり"
+    assert evaluate_current_ratio(0.8) == "短期支払いに注意"
+    assert evaluate_current_ratio(None) == "データ不足"

@@ -41,3 +41,28 @@ def evaluate_payout_ratio(payout_ratio: float | None, threshold: float = 0.8) ->
     if payout_ratio is None:
         return "データ不足"
     return "高い(要注意)" if payout_ratio >= threshold else "適正"
+
+
+def evaluate_dividend_yield(dividend_yield: float | None, threshold: float = 3.0) -> str:
+    """Judge the dividend yield (as a percentage, e.g. 3.5 = 3.5%)."""
+    if dividend_yield is None:
+        return "データ不足"
+    return "高配当" if dividend_yield >= threshold else "標準"
+
+
+def evaluate_debt_to_equity(debt_to_equity: float | None) -> str:
+    """Judge leverage from the debt-to-equity ratio (as a percentage, e.g. 100 = 1.0x)."""
+    if debt_to_equity is None:
+        return "データ不足"
+    if debt_to_equity <= 100:
+        return "健全(低負債)"
+    if debt_to_equity <= 200:
+        return "標準"
+    return "負債が多い"
+
+
+def evaluate_current_ratio(current_ratio: float | None, threshold: float = 1.0) -> str:
+    """Judge short-term solvency from the current ratio."""
+    if current_ratio is None:
+        return "データ不足"
+    return "支払い余力あり" if current_ratio >= threshold else "短期支払いに注意"

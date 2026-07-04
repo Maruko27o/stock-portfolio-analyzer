@@ -42,6 +42,8 @@ def _analysis(**overrides) -> HoldingAnalysis:
         revenue_growth=0.08,
         earnings_growth=0.15,
         payout_ratio=0.3,
+        debt_to_equity=80.0,
+        current_ratio=1.6,
         sector="Consumer Cyclical",
         industry="Auto Manufacturers",
         next_earnings=None,
