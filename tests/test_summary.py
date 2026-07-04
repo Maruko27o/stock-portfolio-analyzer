@@ -17,6 +17,7 @@ from stock_analyzer.summary import (
 def _analysis(**overrides) -> HoldingAnalysis:
     defaults = dict(
         holding=Holding(symbol="7203.T", quantity=100, avg_cost=3000.0),
+        name="Toyota Motor Corporation",
         current_price=3500.0,
         sma_short=3450.0,
         sma_mid=3300.0,
@@ -120,7 +121,7 @@ def test_build_summary_bullish_case():
 def test_format_summary_contains_key_sections():
     summary = build_summary(_analysis(macd_result=MACDResult(1, 0.5, 0.5, 0.4, 0.5)), market_sentiment="強気")
     text = format_summary(summary)
-    assert "【7203.T】" in text
+    assert "【7203.T Toyota Motor Corporation】" in text
     assert "AI評価" in text
     assert "■判断" in text
     assert "■判断理由" in text

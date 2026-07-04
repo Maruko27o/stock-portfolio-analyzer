@@ -37,7 +37,8 @@ def _build_detailed_block(a: HoldingAnalysis) -> list[str]:
     )
     score = total_score(a.rsi, a.per, a.pbr)
     return [
-        f"■ {a.holding.symbol} ({a.holding.quantity:.0f}株 @{a.holding.avg_cost:.2f})",
+        f"■ {a.holding.symbol} {a.name or ''}".rstrip()
+        + f" ({a.holding.quantity:.0f}株 @{a.holding.avg_cost:.2f})",
         f"現在値: {_fmt(a.current_price)}",
         f"SMA25: {_fmt(a.sma_mid)} / RSI14: {_fmt(a.rsi, '{:.1f}')}",
         f"MACD: {evaluate_macd(a.macd_result)}",
