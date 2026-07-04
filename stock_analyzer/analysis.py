@@ -83,6 +83,7 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
     fundamentals = fetch_fundamentals(holding.symbol)
     next_earnings = fetch_next_earnings_date(holding.symbol)
     days_to_earnings = (next_earnings - date.today()).days if next_earnings else None
+    period_high, period_low = period_high_low(highs, lows)
 
     return HoldingAnalysis(
         holding=holding,
@@ -99,8 +100,8 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
         volume_trend_ratio=volume_trend(volumes),
         volume_price_signal=evaluate_volume_price(closes, volumes),
         levels=support_resistance(highs, lows),
-        period_high=period_high_low(highs, lows)[0],
-        period_low=period_high_low(highs, lows)[1],
+        period_high=period_high,
+        period_low=period_low,
         per=fundamentals["per"],
         pbr=fundamentals["pbr"],
         dividend_yield=fundamentals["dividend_yield"],

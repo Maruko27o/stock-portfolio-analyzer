@@ -130,7 +130,7 @@ python -m pytest
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | ダウンロードしたサービスアカウントJSONキーの中身全体 |
 | `GOOGLE_SHEET_ID` | 保有銘柄スプレッドシートのID |
 
-登録後は `.github/workflows/daily-report.yml` のcronで指定した時刻(**平日の 06:00・10:00・12:00 JST**)に自動実行されます。手動で試したい場合はGitHubの Actions タブから `workflow_dispatch` で即時実行できます。以降、保有銘柄を変更したい場合はスプレッドシートを直接編集するだけで、次回の自動実行に反映されます。
+登録後は `.github/workflows/daily-report.yml` のcronで指定した時刻(**平日の 13:00・21:00 JST**)に自動実行されます。手動で試したい場合はGitHubの Actions タブから `workflow_dispatch` で即時実行できます。以降、保有銘柄を変更したい場合はスプレッドシートを直接編集するだけで、次回の自動実行に反映されます。
 
 > GitHub Actionsのスケジュールは負荷状況により数分〜十数分遅れて実行されることがあります(GitHubの仕様)。
 
