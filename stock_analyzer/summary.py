@@ -77,6 +77,7 @@ class HoldingSummary:
     yield_on_cost: float | None = None  # % against the user's average cost
     ex_dividend_date: date | None = None
     days_to_ex_dividend: int | None = None
+    ex_dividend_estimated: bool = False
     reasons: list[str] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
 
@@ -451,6 +452,7 @@ def build_summary(
         yield_on_cost=analysis.yield_on_cost,
         ex_dividend_date=analysis.ex_dividend_date,
         days_to_ex_dividend=analysis.days_to_ex_dividend,
+        ex_dividend_estimated=analysis.ex_dividend_estimated,
         reasons=select_reasons(signals, score),
         risks=detect_risks(analysis),
     )
@@ -474,16 +476,21 @@ def format_dividend_yield(dividend_yield: float | None, yield_on_cost: float | N
     return text
 
 
-def format_ex_dividend(ex_dividend_date: date | None, days_to_ex_dividend: int | None) -> str:
+def format_ex_dividend(
+    ex_dividend_date: date | None,
+    days_to_ex_dividend: int | None,
+    estimated: bool = False,
+) -> str:
     if ex_dividend_date is None:
         return "データ不足"
     text = f"{ex_dividend_date.year}/{ex_dividend_date.month}/{ex_dividend_date.day}"
+    mark = "・推定" if estimated else ""
     if days_to_ex_dividend is None:
-        return text
+        return f"{text}(推定)" if estimated else text
     if days_to_ex_dividend > 0:
-        return f"{text}(あと{days_to_ex_dividend}日)"
+        return f"{text}(あと{days_to_ex_dividend}日{mark})"
     if days_to_ex_dividend == 0:
-        return f"{text}(本日)"
+        return f"{text}(本日{mark})"
     return f"{text}(通過)"
 
 
@@ -502,7 +509,7 @@ def format_summary(summary: HoldingSummary) -> str:
         f"取得：{_price(summary.avg_cost)}",
         f"損益：{profit}",
         f"配当利回り：{format_dividend_yield(summary.dividend_yield, summary.yield_on_cost)}",
-        f"権利落ち日：{format_ex_dividend(summary.ex_dividend_date, summary.days_to_ex_dividend)}",
+        f"権利落ち日：{format_ex_dividend(summary.ex_dividend_date, summary.days_to_ex_dividend, summary.ex_dividend_estimated)}",
         f"AI評価：{summary.rating}（{summary.score}点／{RATING_LABEL[summary.rating]}）",
         DIVIDER,
         "■判断",
@@ -530,3 +537,23 @@ def format_summary(summary: HoldingSummary) -> str:
 
 def format_market_header(market_sentiment: str) -> str:
     return f"📊 本日の市場：{market_sentiment}"
+
+
+def format_as_of(as_of: date | None, today: date | None = None) -> str | None:
+    """Render the "prices as of" stamp; None when there is nothing to show.
+
+    Fresh same-day data needs no caveat, so a stamp is returned only when the
+    latest available price is from an earlier day (weekend/holiday runs, stale
+    data source) — exactly when the reader would otherwise be misled.
+    """
+    if as_of is None:
+        return None
+    if today is None:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        today = datetime.now(ZoneInfo("Asia/Tokyo")).date()
+    if as_of == today:
+        return None
+    weekday = "月火水木金土日"[as_of.weekday()]
+    return f"※価格は{as_of.month}/{as_of.day}({weekday})終値時点"

@@ -8,6 +8,7 @@ from stock_analyzer.data_fetcher import (
     _debt_to_equity_as_percent,
     _to_date,
     _yield_as_percent,
+    estimate_next_ex_dividend,
     split_confirmed_history,
 )
 
@@ -84,6 +85,33 @@ def test_split_confirmed_history_keeps_all_bars_when_last_is_past_day():
     confirmed, current_price = split_confirmed_history(history, now=monday)
     assert len(confirmed) == 5
     assert current_price == 104.0
+
+
+def test_estimate_keeps_future_announced_date():
+    today = date(2026, 7, 5)
+    result = estimate_next_ex_dividend(date(2026, 9, 29), [date(2026, 3, 30)], today)
+    assert result == (date(2026, 9, 29), False)
+
+
+def test_estimate_projects_from_semiannual_history_when_stale():
+    today = date(2026, 7, 5)
+    # Yahoo still reports the March ex-date; history shows a ~6-month rhythm.
+    history = [date(2025, 3, 28), date(2025, 9, 29), date(2026, 3, 30)]
+    projected, estimated = estimate_next_ex_dividend(date(2026, 3, 30), history, today)
+    assert estimated is True
+    assert projected >= today
+    assert date(2026, 9, 1) <= projected <= date(2026, 10, 31)  # roughly next半期末
+
+
+def test_estimate_defaults_to_semiannual_with_single_known_date():
+    today = date(2026, 7, 5)
+    projected, estimated = estimate_next_ex_dividend(date(2026, 3, 30), [], today)
+    assert estimated is True
+    assert projected == date(2026, 3, 30) + __import__("datetime").timedelta(days=182)
+
+
+def test_estimate_returns_reported_when_nothing_to_project_from():
+    assert estimate_next_ex_dividend(None, [], date(2026, 7, 5)) == (None, False)
 
 
 def test_split_confirmed_history_empty():

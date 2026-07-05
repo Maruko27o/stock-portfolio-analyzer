@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -98,6 +98,43 @@ def fetch_fundamentals(symbol: str) -> dict[str, float | str | None]:
         "sector": info.get("sector"),
         "industry": info.get("industry"),
     }
+
+
+DEFAULT_DIVIDEND_INTERVAL_DAYS = 182  # Japanese dividends are typically semi-annual
+
+
+def estimate_next_ex_dividend(
+    reported: date | None, dividend_dates: list[date], today: date
+) -> tuple[date | None, bool]:
+    """Return (ex_dividend_date, is_estimated).
+
+    Yahoo keeps returning the *previous* ex-dividend date until the next one is
+    announced, so a past date would otherwise sit on the cards for months. When
+    the reported date is stale, project the next one from the stock's own payout
+    rhythm (median interval between historical ex-dates).
+    """
+    if reported is not None and reported >= today:
+        return reported, False
+
+    dates = sorted(dividend_dates)
+    last = dates[-1] if dates else None
+    if reported is not None and (last is None or reported > last):
+        last = reported
+    if last is None:
+        return reported, False
+
+    if len(dates) >= 2:
+        intervals = sorted((dates[i + 1] - dates[i]).days for i in range(len(dates) - 1))
+        step = max(intervals[len(intervals) // 2], 28)
+    else:
+        step = DEFAULT_DIVIDEND_INTERVAL_DAYS
+
+    projected = last
+    for _ in range(24):
+        projected += timedelta(days=step)
+        if projected >= today:
+            return projected, True
+    return reported, False
 
 
 def split_confirmed_history(

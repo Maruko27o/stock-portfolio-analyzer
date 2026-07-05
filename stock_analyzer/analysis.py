@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from stock_analyzer.data_fetcher import (
+    estimate_next_ex_dividend,
     fetch_fundamentals,
     fetch_next_earnings_date,
     fetch_price_history,
@@ -73,6 +74,7 @@ class HoldingAnalysis:
     days_to_ex_dividend: int | None = None
     forward_per: float | None = None  # analyst-estimate PER; preferred over trailing
     atr: float | None = None  # average true range (volatility unit for targets)
+    ex_dividend_estimated: bool = False  # True when the date is projected, not announced
 
     @property
     def profit_pct(self) -> float | None:
@@ -104,6 +106,15 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
     next_earnings = fetch_next_earnings_date(holding.symbol)
     days_to_earnings = (next_earnings - date.today()).days if next_earnings else None
     ex_dividend_date = fundamentals["ex_dividend_date"]
+    ex_dividend_estimated = False
+    if fundamentals["dividend_rate"]:
+        dividend_dates = []
+        if history is not None and len(history) and "Dividends" in history:
+            paid = history[history["Dividends"] > 0]
+            dividend_dates = [ts.date() for ts in paid.index]
+        ex_dividend_date, ex_dividend_estimated = estimate_next_ex_dividend(
+            ex_dividend_date, dividend_dates, date.today()
+        )
     days_to_ex_dividend = (ex_dividend_date - date.today()).days if ex_dividend_date else None
     period_high, period_low = period_high_low(highs, lows)
 
@@ -145,4 +156,5 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
         days_to_ex_dividend=days_to_ex_dividend,
         forward_per=fundamentals["forward_per"],
         atr=average_true_range(highs, lows, closes),
+        ex_dividend_estimated=ex_dividend_estimated,
     )

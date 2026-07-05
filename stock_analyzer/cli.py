@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import time
 from dataclasses import dataclass
+from datetime import date
 
 from stock_analyzer.analysis import HoldingAnalysis, analyze_holding
 from stock_analyzer.data_fetcher import (
@@ -74,7 +75,7 @@ def _build_detailed_block(a: HoldingAnalysis) -> list[str]:
         f"配当利回り: {_fmt(a.dividend_yield, '{:.2f}%')}({evaluate_dividend_yield(a.dividend_yield)}) "
         f"/ 配当性向: {_pct(a.payout_ratio)}({evaluate_payout_ratio(a.payout_ratio)})",
         f"取得比利回り: {_fmt(a.yield_on_cost, '{:.2f}%')} "
-        f"/ 権利落ち日: {format_ex_dividend(a.ex_dividend_date, a.days_to_ex_dividend)}",
+        f"/ 権利落ち日: {format_ex_dividend(a.ex_dividend_date, a.days_to_ex_dividend, a.ex_dividend_estimated)}",
         f"負債資本倍率: {_fmt(a.debt_to_equity, '{:.0f}%')}({evaluate_debt_to_equity(a.debt_to_equity)}) "
         f"/ 流動比率: {_fmt(a.current_ratio, '{:.2f}')}({evaluate_current_ratio(a.current_ratio)})",
         f"次回決算日: {a.next_earnings.isoformat() if a.next_earnings else 'データ不足'}"
@@ -111,7 +112,7 @@ def generate_summary(holdings: list[Holding], include_swing_pick: bool = True) -
     """
     sentiment, _, snapshot = _market_section()
     vix = snapshot.get("VIX", (None, None))[0]
-    benchmark_momentum = _benchmark_momentum()
+    benchmark_momentum, _ = _benchmark_context()
     summaries = [
         build_summary(analyze_holding(holding), sentiment, vix, benchmark_momentum)
         for holding in holdings
@@ -148,6 +149,7 @@ class ReportData:
     summaries: list  # list[HoldingSummary], ordered by raw_score desc
     swing_picks: list[dict]
     failed_symbols: list[str]
+    as_of: date | None = None  # date of the latest price bar ("prices as of")
 
     def is_empty(self) -> bool:
         return not self.snapshot and not self.summaries and not self.swing_picks
@@ -156,13 +158,19 @@ class ReportData:
 BENCHMARK_TICKER = "1306.T"  # TOPIX ETF: baseline to separate stock strength from market tide
 
 
-def _benchmark_momentum() -> float | None:
-    """Return the market benchmark's 10-day rate of change, or None on failure."""
+def _benchmark_context() -> tuple[float | None, date | None]:
+    """Return (benchmark 10-day rate of change, date of the latest price bar).
+
+    The latest bar date doubles as the "prices as of" stamp for the whole
+    report, so the reader can always tell how fresh the numbers are.
+    """
     try:
-        confirmed, _ = split_confirmed_history(fetch_price_history(BENCHMARK_TICKER))
-        return rate_of_change(confirmed["Close"].tolist(), 10)
+        history = fetch_price_history(BENCHMARK_TICKER)
+        as_of = history.index[-1].date() if len(history) else None
+        confirmed, _ = split_confirmed_history(history)
+        return rate_of_change(confirmed["Close"].tolist(), 10), as_of
     except Exception:
-        return None
+        return None, None
 
 
 def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True) -> ReportData:
@@ -175,7 +183,7 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
         sentiment = "中立"  # neutral fallback so holding scores can still be computed
 
     vix = snapshot.get("VIX", (None, None))[0] if snapshot else None
-    benchmark_momentum = _benchmark_momentum()
+    benchmark_momentum, as_of = _benchmark_context()
 
     summaries = []
     failed_symbols = []
@@ -209,14 +217,14 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
                 }
             )
 
-    return ReportData(sentiment, snapshot, summaries, swing_picks, failed_symbols)
+    return ReportData(sentiment, snapshot, summaries, swing_picks, failed_symbols, as_of)
 
 
 def flex_messages_from(data: ReportData) -> list[dict]:
     """Render collected data into LINE Flex message objects."""
     bubbles: list[dict] = []
     if data.snapshot:
-        bubbles.append(market_bubble(data.sentiment, data.snapshot))
+        bubbles.append(market_bubble(data.sentiment, data.snapshot, data.as_of))
     bubbles.extend(holding_bubble(summary) for summary in data.summaries)
     if data.swing_picks:
         bubbles.append(swing_bubble(data.swing_picks))
@@ -236,7 +244,7 @@ def discord_embeds_from(data: ReportData) -> list[dict]:
     """Render collected data into Discord embed objects."""
     embeds: list[dict] = []
     if data.snapshot:
-        embeds.append(market_embed(data.sentiment, data.snapshot))
+        embeds.append(market_embed(data.sentiment, data.snapshot, data.as_of))
     embeds.extend(holding_embed(summary) for summary in data.summaries)
     if data.swing_picks:
         embeds.append(swing_embed(data.swing_picks))

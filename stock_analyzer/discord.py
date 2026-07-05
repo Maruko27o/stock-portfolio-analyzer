@@ -10,6 +10,7 @@ from stock_analyzer.summary import (
     RATING_EMOJI,
     RATING_LABEL,
     HoldingSummary,
+    format_as_of,
     format_dividend_yield,
     format_ex_dividend,
 )
@@ -29,7 +30,11 @@ def _price(value: float | None) -> str:
     return f"{value:,.2f}"
 
 
-def market_embed(sentiment: str, snapshot: dict[str, tuple[float | None, float | None]]) -> dict:
+def market_embed(
+    sentiment: str,
+    snapshot: dict[str, tuple[float | None, float | None]],
+    as_of=None,
+) -> dict:
     lines = []
     for name, (price, change) in snapshot.items():
         if name == "VIX":
@@ -38,6 +43,9 @@ def market_embed(sentiment: str, snapshot: dict[str, tuple[float | None, float |
             continue
         change_text = f"{change:+.2f}%" if change is not None else "—"
         lines.append(f"{name}: {change_text}")
+    as_of_note = format_as_of(as_of)
+    if as_of_note:
+        lines.append(as_of_note)
     return {
         "title": f"📊 本日の市場：{sentiment}",
         "description": "\n".join(lines),
@@ -58,7 +66,8 @@ def holding_embed(summary: HoldingSummary) -> dict:
         position_line = f"現在: {_price(summary.current_price)}"
     dividend_line = (
         f"配当: {format_dividend_yield(summary.dividend_yield, summary.yield_on_cost)}"
-        f" / 権利落ち: {format_ex_dividend(summary.ex_dividend_date, summary.days_to_ex_dividend)}"
+        f" / 権利落ち: "
+        f"{format_ex_dividend(summary.ex_dividend_date, summary.days_to_ex_dividend, summary.ex_dividend_estimated)}"
     )
     parts = [
         position_line,
