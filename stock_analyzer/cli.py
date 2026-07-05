@@ -7,6 +7,7 @@ from datetime import date
 
 from stock_analyzer.analysis import HoldingAnalysis, analyze_holding
 from stock_analyzer.backtest_stats import (
+    horizon_expectations,
     load_stats,
     load_strategy_stats,
     stats_for_score,
@@ -207,6 +208,7 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
             summary.strategy_stats = stats_for_strategy(
                 strategy_stats, summary.strategies_active, regime
             )
+            summary.horizons = horizon_expectations(backtest, summary.price_score)
             summaries.append(summary)
         except Exception:
             failed_symbols.append(holding.symbol)

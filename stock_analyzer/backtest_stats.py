@@ -90,6 +90,39 @@ def stats_for_strategy(
     return None
 
 
+HORIZON_RULES = [
+    ("5営業日後売却", 5),
+    ("10営業日後売却", 10),
+    ("20営業日後売却", 20),
+    ("30営業日後売却", 30),
+]
+
+
+def horizon_expectations(stats: dict | None, score: float | None) -> list[dict]:
+    """保有期間(5/10/20/30営業日)ごとの該当スコア帯実績を返す。
+
+    短期〜中期で「何日持つと期待値・勝率がどうなるか」を通知に出すための
+    データ。件数不足の期間は含めない。
+    """
+    if stats is None or score is None:
+        return []
+    label = band_label_for(score)
+    min_count = stats.get("metadata", {}).get("min_band_count", 30)
+    out = []
+    for rule_name, days in HORIZON_RULES:
+        band = stats.get("rules", {}).get(rule_name, {}).get("bands", {}).get(label)
+        if band and band.get("count", 0) >= min_count:
+            out.append(
+                {
+                    "days": days,
+                    "expectancy": band["expectancy"],
+                    "win_rate": band["win_rate"],
+                    "band": label,
+                }
+            )
+    return out
+
+
 def format_strategy_compact(entry: dict) -> str:
     """1行の戦略実績表示(Discord用)。"""
     pf = entry.get("profit_factor")
