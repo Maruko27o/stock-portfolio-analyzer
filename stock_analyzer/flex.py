@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from stock_analyzer.summary import RATING_LABEL, HoldingSummary
+from stock_analyzer.summary import (
+    RATING_LABEL,
+    HoldingSummary,
+    format_dividend_yield,
+    format_ex_dividend,
+)
 
 # Header background color per rating (dark enough for white text).
 RATING_COLOR = {
@@ -82,6 +87,12 @@ def holding_bubble(summary: HoldingSummary) -> dict:
         # Watch-only symbols (on-demand analysis) have no position, so skip 取得/損益.
         body_contents.append(_kv_row("取得", _price(summary.avg_cost)))
         body_contents.append(_kv_row("損益", profit, profit_color))
+    body_contents.append(
+        _kv_row("配当", format_dividend_yield(summary.dividend_yield, summary.yield_on_cost))
+    )
+    body_contents.append(
+        _kv_row("権利落ち", format_ex_dividend(summary.ex_dividend_date, summary.days_to_ex_dividend))
+    )
     body_contents += [
         _sep(),
         _text("■ 判断", weight="bold", size="sm"),

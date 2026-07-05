@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 
 from stock_analyzer.analysis import HoldingAnalysis
 from stock_analyzer.indicators import evaluate_macd
+
+# Selling within this many days before the ex-dividend date forfeits the dividend,
+# so sell-leaning advice is deferred until the right is secured.
+DIVIDEND_HOLD_WINDOW_DAYS = 30
 
 
 @dataclass
@@ -28,6 +33,10 @@ class HoldingSummary:
     take_profit: float | None
     stop_loss: float | None
     add_price: float | None
+    dividend_yield: float | None = None  # % against current price
+    yield_on_cost: float | None = None  # % against the user's average cost
+    ex_dividend_date: date | None = None
+    days_to_ex_dividend: int | None = None
     reasons: list[str] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
 
@@ -116,6 +125,15 @@ def build_signals(analysis: HoldingAnalysis, market_sentiment: str) -> list[Sign
         signals.append(Signal(5, "増益") if analysis.earnings_growth > 0 else Signal(-5, "減益"))
     if analysis.dividend_yield is not None and analysis.dividend_yield >= 3.0:
         signals.append(Signal(3, f"高配当利回り{analysis.dividend_yield:.1f}%"))
+    if (
+        analysis.days_to_ex_dividend is not None
+        and 1 <= analysis.days_to_ex_dividend <= DIVIDEND_HOLD_WINDOW_DAYS
+        and analysis.dividend_rate
+    ):
+        label = f"配当権利落ちまであと{analysis.days_to_ex_dividend}日"
+        if analysis.dividend_yield is not None:
+            label += f"(利回り{analysis.dividend_yield:.1f}%)"
+        signals.append(Signal(4, label))
     if analysis.debt_to_equity is not None:
         if analysis.debt_to_equity <= 100:
             signals.append(Signal(3, "財務健全(低負債)"))
@@ -183,7 +201,20 @@ def select_reasons(signals: list[Signal], score: int, limit: int = 5) -> list[st
     return [s.reason for s in matching[:limit]]
 
 
-def decide_action(rating: str, profit_pct: float | None) -> str:
+def decide_action(
+    rating: str,
+    profit_pct: float | None,
+    days_to_ex_dividend: int | None = None,
+    dividend_rate: float | None = None,
+) -> str:
+    # Selling before the ex-dividend date forfeits the dividend, so while the
+    # right is still pending, sell-leaning advice waits until it is secured.
+    dividend_pending = (
+        days_to_ex_dividend is not None
+        and 1 <= days_to_ex_dividend <= DIVIDEND_HOLD_WINDOW_DAYS
+        and bool(dividend_rate)
+    )
+
     if rating in ("◎◎", "◎"):
         if profit_pct is not None and profit_pct >= 15:
             return "保有継続(押し目で追加検討)"
@@ -194,11 +225,17 @@ def decide_action(rating: str, profit_pct: float | None) -> str:
         return "保有継続(様子見)"
     if rating == "▲":
         if profit_pct is not None and profit_pct > 0:
+            if dividend_pending:
+                return f"配当権利落ち(あと{days_to_ex_dividend}日)後に一部利確検討"
             return "一部利確検討"
         return "様子見(損切ライン注視)"
     # ×
     if profit_pct is not None and profit_pct > 0:
+        if dividend_pending:
+            return f"配当権利落ち(あと{days_to_ex_dividend}日)後に利益確定推奨"
         return "利益確定推奨"
+    if dividend_pending:
+        return f"配当権利(あと{days_to_ex_dividend}日)まで保有→権利後に損切検討"
     return "損切推奨"
 
 
@@ -271,10 +308,16 @@ def build_summary(analysis: HoldingAnalysis, market_sentiment: str) -> HoldingSu
         score=score,
         raw_score=raw_score,
         rating=rating,
-        action=decide_action(rating, analysis.profit_pct),
+        action=decide_action(
+            rating, analysis.profit_pct, analysis.days_to_ex_dividend, analysis.dividend_rate
+        ),
         take_profit=take_profit,
         stop_loss=stop_loss,
         add_price=add_price,
+        dividend_yield=analysis.dividend_yield,
+        yield_on_cost=analysis.yield_on_cost,
+        ex_dividend_date=analysis.ex_dividend_date,
+        days_to_ex_dividend=analysis.days_to_ex_dividend,
         reasons=select_reasons(signals, score),
         risks=detect_risks(analysis),
     )
@@ -286,6 +329,29 @@ def _price(value: float | None) -> str:
     if abs(value) >= 1000:
         return f"{value:,.0f}円"
     return f"{value:,.2f}"
+
+
+def format_dividend_yield(dividend_yield: float | None, yield_on_cost: float | None) -> str:
+    """Render '4.24%(取得比4.87%)' — current yield plus the yield on the user's own cost."""
+    if dividend_yield is None and yield_on_cost is None:
+        return "—"
+    text = f"{dividend_yield:.2f}%" if dividend_yield is not None else "—"
+    if yield_on_cost is not None:
+        text += f"(取得比{yield_on_cost:.2f}%)"
+    return text
+
+
+def format_ex_dividend(ex_dividend_date: date | None, days_to_ex_dividend: int | None) -> str:
+    if ex_dividend_date is None:
+        return "データ不足"
+    text = f"{ex_dividend_date.year}/{ex_dividend_date.month}/{ex_dividend_date.day}"
+    if days_to_ex_dividend is None:
+        return text
+    if days_to_ex_dividend > 0:
+        return f"{text}(あと{days_to_ex_dividend}日)"
+    if days_to_ex_dividend == 0:
+        return f"{text}(本日)"
+    return f"{text}(通過)"
 
 
 DIVIDER = "━━━━━━━━━━━━"
@@ -302,6 +368,8 @@ def format_summary(summary: HoldingSummary) -> str:
         f"現在：{_price(summary.current_price)}",
         f"取得：{_price(summary.avg_cost)}",
         f"損益：{profit}",
+        f"配当利回り：{format_dividend_yield(summary.dividend_yield, summary.yield_on_cost)}",
+        f"権利落ち日：{format_ex_dividend(summary.ex_dividend_date, summary.days_to_ex_dividend)}",
         f"AI評価：{summary.rating}（{summary.score}点／{RATING_LABEL[summary.rating]}）",
         DIVIDER,
         "■判断",

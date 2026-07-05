@@ -56,6 +56,36 @@ def test_holding_bubble_hides_cost_rows_for_watch_only_symbols():
     assert "損益" not in labels
 
 
+def test_holding_bubble_always_shows_dividend_rows():
+    from datetime import date
+
+    bubble = holding_bubble(
+        _summary(
+            dividend_yield=4.24,
+            yield_on_cost=4.87,
+            ex_dividend_date=date(2026, 7, 30),
+            days_to_ex_dividend=25,
+        )
+    )
+    rows = [
+        (row["contents"][0]["text"], row["contents"][1]["text"])
+        for row in bubble["body"]["contents"]
+        if row.get("type") == "box" and row.get("layout") == "horizontal"
+    ]
+    assert ("配当", "4.24%(取得比4.87%)") in rows
+    assert ("権利落ち", "2026/7/30(あと25日)") in rows
+
+    # Shown even when data is missing, so the user always sees the slot.
+    bare = holding_bubble(_summary())
+    labels = [
+        row["contents"][0]["text"]
+        for row in bare["body"]["contents"]
+        if row.get("type") == "box" and row.get("layout") == "horizontal"
+    ]
+    assert "配当" in labels
+    assert "権利落ち" in labels
+
+
 def test_market_bubble_lists_indices():
     snapshot = {"日経平均": (39000.0, 1.2), "ドル円": (150.0, -0.3)}
     bubble = market_bubble("強気", snapshot)

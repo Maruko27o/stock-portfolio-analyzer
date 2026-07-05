@@ -1,9 +1,25 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 import pandas as pd
 import yfinance as yf
+
+
+def _to_date(value) -> date | None:
+    """Coerce yfinance date representations (epoch seconds, date, ISO string) to a date."""
+    try:
+        if isinstance(value, (int, float)):
+            return datetime.fromtimestamp(value, tz=timezone.utc).date()
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        if isinstance(value, str) and value:
+            return date.fromisoformat(value[:10])
+    except (ValueError, OverflowError, OSError):
+        return None
+    return None
 
 
 def fetch_price_history(symbol: str, period: str = "1y") -> pd.DataFrame:
@@ -19,6 +35,8 @@ def fetch_fundamentals(symbol: str) -> dict[str, float | str | None]:
         "per": info.get("trailingPE"),
         "pbr": info.get("priceToBook"),
         "dividend_yield": info.get("dividendYield"),
+        "dividend_rate": info.get("dividendRate") or info.get("trailingAnnualDividendRate"),
+        "ex_dividend_date": _to_date(info.get("exDividendDate")),
         "roe": info.get("returnOnEquity"),
         "roa": info.get("returnOnAssets"),
         "eps": info.get("trailingEps"),

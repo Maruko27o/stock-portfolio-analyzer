@@ -5,7 +5,13 @@ import time
 import requests
 
 from stock_analyzer.flex import RATING_COLOR, SENTIMENT_COLOR
-from stock_analyzer.summary import RATING_EMOJI, RATING_LABEL, HoldingSummary
+from stock_analyzer.summary import (
+    RATING_EMOJI,
+    RATING_LABEL,
+    HoldingSummary,
+    format_dividend_yield,
+    format_ex_dividend,
+)
 
 MAX_EMBEDS_PER_MESSAGE = 10
 
@@ -45,8 +51,13 @@ def holding_embed(summary: HoldingSummary) -> dict:
     else:
         # Watch-only symbols (on-demand analysis) have no position, so skip 取得/損益.
         position_line = f"現在: {_price(summary.current_price)}"
+    dividend_line = (
+        f"配当: {format_dividend_yield(summary.dividend_yield, summary.yield_on_cost)}"
+        f" / 権利落ち: {format_ex_dividend(summary.ex_dividend_date, summary.days_to_ex_dividend)}"
+    )
     parts = [
         position_line,
+        dividend_line,
         f"**判断**: {summary.action}",
         f"第一目標: {_price(summary.take_profit)} / 損切: {_price(summary.stop_loss)}"
         + (f" / 押し目: {_price(summary.add_price)}" if summary.add_price is not None else ""),

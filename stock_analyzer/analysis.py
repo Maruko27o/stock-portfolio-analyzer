@@ -66,12 +66,22 @@ class HoldingAnalysis:
     industry: str | None
     next_earnings: date | None
     days_to_earnings: int | None
+    dividend_rate: float | None = None  # annual dividend per share (currency)
+    ex_dividend_date: date | None = None
+    days_to_ex_dividend: int | None = None
 
     @property
     def profit_pct(self) -> float | None:
         if self.current_price is None or not self.holding.avg_cost:
             return None
         return (self.current_price - self.holding.avg_cost) / self.holding.avg_cost * 100
+
+    @property
+    def yield_on_cost(self) -> float | None:
+        """Dividend yield against the user's own average cost, not the current price."""
+        if self.dividend_rate is None or not self.holding.avg_cost:
+            return None
+        return self.dividend_rate / self.holding.avg_cost * 100
 
 
 def analyze_holding(holding: Holding) -> HoldingAnalysis:
@@ -85,6 +95,8 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
     fundamentals = fetch_fundamentals(holding.symbol)
     next_earnings = fetch_next_earnings_date(holding.symbol)
     days_to_earnings = (next_earnings - date.today()).days if next_earnings else None
+    ex_dividend_date = fundamentals["ex_dividend_date"]
+    days_to_ex_dividend = (ex_dividend_date - date.today()).days if ex_dividend_date else None
     period_high, period_low = period_high_low(highs, lows)
 
     return HoldingAnalysis(
@@ -120,4 +132,7 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
         industry=fundamentals["industry"],
         next_earnings=next_earnings,
         days_to_earnings=days_to_earnings,
+        dividend_rate=fundamentals["dividend_rate"],
+        ex_dividend_date=ex_dividend_date,
+        days_to_ex_dividend=days_to_ex_dividend,
     )
