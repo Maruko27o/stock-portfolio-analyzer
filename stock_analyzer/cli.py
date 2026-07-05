@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from stock_analyzer.analysis import HoldingAnalysis, analyze_holding
+from stock_analyzer.backtest_stats import load_stats, stats_for_score
 from stock_analyzer.data_fetcher import (
     fetch_fundamentals,
     fetch_price_history,
@@ -184,14 +185,15 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
 
     vix = snapshot.get("VIX", (None, None))[0] if snapshot else None
     benchmark_momentum, as_of = _benchmark_context()
+    backtest = load_stats()  # 保存済み統計の参照のみ(ここでバックテストは走らない)
 
     summaries = []
     failed_symbols = []
     for holding in holdings:
         try:
-            summaries.append(
-                build_summary(_analyze_with_retry(holding), sentiment, vix, benchmark_momentum)
-            )
+            summary = build_summary(_analyze_with_retry(holding), sentiment, vix, benchmark_momentum)
+            summary.backtest = stats_for_score(backtest, summary.price_score)
+            summaries.append(summary)
         except Exception:
             failed_symbols.append(holding.symbol)
     summaries.sort(key=lambda s: s.raw_score, reverse=True)

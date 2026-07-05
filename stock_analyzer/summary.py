@@ -78,6 +78,8 @@ class HoldingSummary:
     ex_dividend_date: date | None = None
     days_to_ex_dividend: int | None = None
     ex_dividend_estimated: bool = False
+    price_score: int | None = None  # 価格由来シグナルのみのスコア(バックテスト統計の照会キー)
+    backtest: dict | None = None  # 保存済みバックテスト統計(該当スコア帯の実績)
     reasons: list[str] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
 
@@ -430,6 +432,10 @@ def build_summary(
     signals = build_signals(analysis, market_sentiment, vix, benchmark_momentum)
     raw_score = 50 + _capped_total(signals)
     score = _clamp(raw_score)
+    # バックテストは価格から算出可能なシグナルだけで検証しているため、
+    # 実績統計の照会には同じ範囲で計算したスコアを使う。
+    price_signals = [s for s in signals if s.category in ("technical", "dividend", "market")]
+    price_score = _clamp(50 + _capped_total(price_signals))
     rating = rating_from_score(score)
     take_profit, stop_loss, add_price = compute_targets(analysis, rating)
 
@@ -453,6 +459,7 @@ def build_summary(
         ex_dividend_date=analysis.ex_dividend_date,
         days_to_ex_dividend=analysis.days_to_ex_dividend,
         ex_dividend_estimated=analysis.ex_dividend_estimated,
+        price_score=price_score,
         reasons=select_reasons(signals, score),
         risks=detect_risks(analysis),
     )
@@ -519,6 +526,13 @@ def format_summary(summary: HoldingSummary) -> str:
     ]
     if summary.add_price is not None:
         lines.append(f"押し目買い目安：{_price(summary.add_price)}")
+
+    if summary.backtest:
+        from stock_analyzer.backtest_stats import format_backtest_lines
+
+        lines.append(DIVIDER)
+        lines.append("■バックテスト実績")
+        lines.extend(format_backtest_lines(summary.backtest))
 
     lines.append(DIVIDER)
     lines.append("■判断理由")

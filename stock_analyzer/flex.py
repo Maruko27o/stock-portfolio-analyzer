@@ -110,6 +110,23 @@ def holding_bubble(summary: HoldingSummary) -> dict:
     if summary.add_price is not None:
         body_contents.append(_kv_row("押し目買い", _price(summary.add_price)))
 
+    if summary.backtest:
+        bt = summary.backtest
+        body_contents.append(_sep())
+        body_contents.append(_text(f"■ 実績({bt['band']}帯)", weight="bold", size="sm"))
+        body_contents.append(_kv_row("実績勝率", f"{bt['win_rate']:.1f}%"))
+        expectancy_color = PROFIT_UP_COLOR if bt["expectancy"] >= 0 else PROFIT_DOWN_COLOR
+        body_contents.append(_kv_row("期待値", f"{bt['expectancy']:+.1f}%", expectancy_color))
+        body_contents.append(_kv_row("期待利益/損失", f"+{bt['avg_win']:.1f}% / -{bt['avg_loss']:.1f}%"))
+        detail = []
+        if bt.get("risk_reward") is not None:
+            detail.append(f"RR{bt['risk_reward']:.2f}")
+        if bt.get("profit_factor") is not None:
+            detail.append(f"PF{bt['profit_factor']:.2f}")
+        detail.append(f"平均保有{bt['avg_hold_days']:.0f}日")
+        detail.append(f"年約{bt.get('signals_per_year_per_symbol', bt['signals_per_year']):.0f}回/銘柄")
+        body_contents.append(_text("／".join(detail), size="xxs", color=MUTED))
+
     body_contents.append(_sep())
     body_contents.append(_text("■ 判断理由", weight="bold", size="sm"))
     if summary.reasons:
