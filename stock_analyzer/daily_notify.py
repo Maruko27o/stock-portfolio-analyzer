@@ -3,17 +3,30 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 
 from stock_analyzer.cli import collect_report_data, discord_embeds_from, flex_messages_from
 from stock_analyzer.discord import send_discord
 from stock_analyzer.notifier import broadcast_messages
-from stock_analyzer.portfolio import Holding, load_portfolio, load_portfolio_from_sheet
+from stock_analyzer.portfolio import (
+    Holding,
+    load_portfolio,
+    load_portfolio_from_sheet,
+    normalize_symbol,
+)
 
 LINE_TOKEN_ENV_VAR = "LINE_CHANNEL_ACCESS_TOKEN"
 DISCORD_WEBHOOK_ENV_VAR = "DISCORD_WEBHOOK_URL"
 GOOGLE_SERVICE_ACCOUNT_ENV_VAR = "GOOGLE_SERVICE_ACCOUNT_JSON"
 GOOGLE_SHEET_ID_ENV_VAR = "GOOGLE_SHEET_ID"
+ANALYZE_SYMBOLS_ENV_VAR = "ANALYZE_SYMBOLS"
+
+
+def holdings_from_symbols(text: str) -> list[Holding]:
+    """Parse 'symbols' input ('7203, 6758' etc.) into watch-only holdings (no position)."""
+    symbols = [normalize_symbol(part) for part in re.split(r"[\s,、]+", text) if part.strip()]
+    return [Holding(symbol=symbol, quantity=0, avg_cost=0.0) for symbol in symbols]
 
 
 def load_holdings(portfolio_path: str | None) -> list[Holding]:
@@ -40,6 +53,9 @@ def main() -> None:
     parser.add_argument(
         "--portfolio", help="保有銘柄CSVのパス(Googleスプレッドシート未設定時のフォールバック)"
     )
+    parser.add_argument(
+        "--symbols", help="指定した銘柄だけをオンデマンド分析(カンマ区切り。例: 7203,6758)"
+    )
     args = parser.parse_args()
 
     line_token = os.environ.get(LINE_TOKEN_ENV_VAR)
@@ -51,8 +67,14 @@ def main() -> None:
         )
         raise SystemExit(1)
 
-    holdings = load_holdings(args.portfolio)
-    data = collect_report_data(holdings)  # fetched once, rendered per channel
+    symbols_text = args.symbols or os.environ.get(ANALYZE_SYMBOLS_ENV_VAR, "")
+    if symbols_text.strip():
+        # On-demand: analyze just the requested tickers (skip the slow universe scan).
+        holdings = holdings_from_symbols(symbols_text)
+        data = collect_report_data(holdings, include_swing_pick=False)
+    else:
+        holdings = load_holdings(args.portfolio)
+        data = collect_report_data(holdings)  # fetched once, rendered per channel
 
     if discord_url:
         send_discord(discord_url, discord_embeds_from(data))

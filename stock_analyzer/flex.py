@@ -77,10 +77,12 @@ def holding_bubble(summary: HoldingSummary) -> dict:
     if summary.profit_pct is not None:
         profit_color = PROFIT_UP_COLOR if summary.profit_pct >= 0 else PROFIT_DOWN_COLOR
 
-    body_contents = [
-        _kv_row("現在", _price(summary.current_price)),
-        _kv_row("取得", _price(summary.avg_cost)),
-        _kv_row("損益", profit, profit_color),
+    body_contents = [_kv_row("現在", _price(summary.current_price))]
+    if summary.avg_cost > 0:
+        # Watch-only symbols (on-demand analysis) have no position, so skip 取得/損益.
+        body_contents.append(_kv_row("取得", _price(summary.avg_cost)))
+        body_contents.append(_kv_row("損益", profit, profit_color))
+    body_contents += [
         _sep(),
         _text("■ 判断", weight="bold", size="sm"),
         _text(summary.action, size="sm", weight="bold", color=color),

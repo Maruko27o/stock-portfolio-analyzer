@@ -5,7 +5,12 @@ on:
     # Weekdays (JST) at 13:00 and 21:00. GitHub cron is UTC (JST = UTC+9).
     - cron: "0 4 * * 1-5" #  13:00 JST Mon-Fri (= 04:00 UTC Mon-Fri)
     - cron: "0 12 * * 1-5" # 21:00 JST Mon-Fri (= 12:00 UTC Mon-Fri)
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: "分析する銘柄コード(カンマ区切り。例: 7203,6758)。空欄なら保有銘柄すべて"
+        required: false
+        default: ""
 
 jobs:
   notify:
@@ -26,6 +31,7 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          ANALYZE_SYMBOLS: ${{ inputs.symbols }}
         run: python -m stock_analyzer.daily_notify
 
       - name: Alert on failure

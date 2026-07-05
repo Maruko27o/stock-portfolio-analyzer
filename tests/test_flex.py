@@ -43,6 +43,19 @@ def test_holding_bubble_includes_risks_section_when_present():
     assert any("注意点" in t for t in body_texts)
 
 
+def test_holding_bubble_hides_cost_rows_for_watch_only_symbols():
+    bubble = holding_bubble(_summary(avg_cost=0.0, profit_pct=None))
+    body = bubble["body"]["contents"]
+    labels = [
+        row["contents"][0]["text"]
+        for row in body
+        if row.get("type") == "box" and row.get("layout") == "horizontal"
+    ]
+    assert "現在" in labels
+    assert "取得" not in labels
+    assert "損益" not in labels
+
+
 def test_market_bubble_lists_indices():
     snapshot = {"日経平均": (39000.0, 1.2), "ドル円": (150.0, -0.3)}
     bubble = market_bubble("強気", snapshot)
