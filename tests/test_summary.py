@@ -280,6 +280,26 @@ def test_format_summary_always_shows_dividend_lines():
     assert "権利落ち日：2026/7/30(あと25日)" in text_with
 
 
+def test_format_ex_dividend_marks_estimated_dates():
+    from datetime import date
+
+    from stock_analyzer.summary import format_ex_dividend
+
+    assert format_ex_dividend(date(2026, 9, 28), 85, estimated=True) == "2026/9/28(あと85日・推定)"
+    assert format_ex_dividend(date(2026, 9, 28), 85, estimated=False) == "2026/9/28(あと85日)"
+
+
+def test_format_as_of_only_stamps_non_current_data():
+    from datetime import date
+
+    from stock_analyzer.summary import format_as_of
+
+    today = date(2026, 7, 5)
+    assert format_as_of(None, today=today) is None
+    assert format_as_of(today, today=today) is None  # same-day data needs no caveat
+    assert format_as_of(date(2026, 7, 3), today=today) == "※価格は7/3(金)終値時点"
+
+
 def test_format_summary_prepends_rating_emoji():
     from stock_analyzer.summary import RATING_EMOJI
 

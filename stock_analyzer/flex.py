@@ -4,6 +4,7 @@ from stock_analyzer.market import vix_regime_label
 from stock_analyzer.summary import (
     RATING_LABEL,
     HoldingSummary,
+    format_as_of,
     format_dividend_yield,
     format_ex_dividend,
 )
@@ -92,7 +93,12 @@ def holding_bubble(summary: HoldingSummary) -> dict:
         _kv_row("配当", format_dividend_yield(summary.dividend_yield, summary.yield_on_cost))
     )
     body_contents.append(
-        _kv_row("権利落ち", format_ex_dividend(summary.ex_dividend_date, summary.days_to_ex_dividend))
+        _kv_row(
+            "権利落ち",
+            format_ex_dividend(
+                summary.ex_dividend_date, summary.days_to_ex_dividend, summary.ex_dividend_estimated
+            ),
+        )
     )
     body_contents += [
         _sep(),
@@ -124,7 +130,11 @@ def holding_bubble(summary: HoldingSummary) -> dict:
     }
 
 
-def market_bubble(sentiment: str, snapshot: dict[str, tuple[float | None, float | None]]) -> dict:
+def market_bubble(
+    sentiment: str,
+    snapshot: dict[str, tuple[float | None, float | None]],
+    as_of=None,
+) -> dict:
     color = SENTIMENT_COLOR.get(sentiment, MUTED)
     header = _header(
         [
@@ -146,6 +156,11 @@ def market_bubble(sentiment: str, snapshot: dict[str, tuple[float | None, float 
         if change is not None:
             change_color = PROFIT_UP_COLOR if change >= 0 else PROFIT_DOWN_COLOR
         rows.append(_kv_row(name, change_text, change_color))
+
+    as_of_note = format_as_of(as_of)
+    if as_of_note:
+        rows.append(_sep())
+        rows.append(_text(as_of_note, size="xxs", color=MUTED))
 
     return {
         "type": "bubble",
