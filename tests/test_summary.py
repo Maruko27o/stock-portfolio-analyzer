@@ -219,9 +219,14 @@ def test_format_summary_contains_key_sections():
     summary = build_summary(_analysis(macd_result=MACDResult(1, 0.5, 0.5, 0.4, 0.5)), market_sentiment="強気")
     text = format_summary(summary)
     assert "【7203.T Toyota Motor Corporation】" in text
-    assert "AI評価" in text
     assert "■判断" in text
     assert "■判断理由" in text
+    # スコア点数はバックテストで判別力なしと確認されたため表示しない
+    assert "AI評価" not in text
+    assert "点／" not in text
+    # 各データに「見方」の一文が付く
+    assert "※権利落ち日まで保有すると配当を受取" in text
+    assert "※損切はこの銘柄の値動き幅(ATR)基準" in text
 
 
 def test_build_summary_carries_dividend_fields_and_signal():

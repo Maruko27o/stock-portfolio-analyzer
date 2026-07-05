@@ -560,7 +560,11 @@ DIVIDER = "━━━━━━━━━━━━"
 
 
 def format_summary(summary: HoldingSummary) -> str:
-    """Render a single holding summary as a compact, scannable LINE message."""
+    """Render a single holding summary as a compact, scannable LINE message.
+
+    バックテストで判別力が無いと確認された表示(AIスコア点数・スコア帯実績・
+    期間別4行)は出さず、根拠のある情報だけを「※見方」の一文付きで出す。
+    """
     profit = f"{summary.profit_pct:+.1f}%" if summary.profit_pct is not None else "—"
     heading = f"{summary.symbol} {summary.name}" if summary.name else summary.symbol
     marker = RATING_EMOJI[summary.rating]
@@ -572,34 +576,28 @@ def format_summary(summary: HoldingSummary) -> str:
         f"損益：{profit}",
         f"配当利回り：{format_dividend_yield(summary.dividend_yield, summary.yield_on_cost)}",
         f"権利落ち日：{format_ex_dividend(summary.ex_dividend_date, summary.days_to_ex_dividend, summary.ex_dividend_estimated)}",
-        f"AI評価：{summary.rating}（{summary.score}点／{RATING_LABEL[summary.rating]}）",
+        "※権利落ち日まで保有すると配当を受取。売却は権利後が基本",
         DIVIDER,
         "■判断",
         summary.action,
-        f"第一目標：{_price(summary.take_profit)}",
-        f"損切：{_price(summary.stop_loss)}",
+        f"損切：{_price(summary.stop_loss)}／目標：{_price(summary.take_profit)}",
     ]
     if summary.add_price is not None:
         lines.append(f"押し目買い目安：{_price(summary.add_price)}")
+    lines.append("※損切はこの銘柄の値動き幅(ATR)基準。終値で割れたら売却を検討")
 
     if summary.strategy_stats:
         st = summary.strategy_stats
         scope = f"({st['regime']}相場)" if st.get("regime") else ""
         lines.append(DIVIDER)
-        lines.append(f"■戦略: {st['strategy']}{scope}")
-        lines.append(f"検証勝率：{st['win_rate']:.1f}%／期待値：{st['expectancy']:+.1f}%")
-        lines.append(f"信頼度：検証{st['count']:,}件(学習期間外)")
+        lines.append(f"■戦略シグナル：{st['strategy']}{scope}")
+        lines.append(
+            f"検証勝率：{st['win_rate']:.1f}%／期待値：{st['expectancy']:+.1f}%／{st['count']:,}件"
+        )
+        lines.append("※銘柄の優劣でなく「買い時の型」の検知。下落・横ばい相場で特に有効")
 
     if summary.horizons and summary.current_price is not None:
         price = summary.current_price
-        lines.append(DIVIDER)
-        lines.append(f"■期間別の期待値({summary.horizons[0]['band']}帯実績)")
-        for h in summary.horizons:
-            implied = price * (1 + h["expectancy"] / 100)
-            lines.append(
-                f"{h['days']}日後：{h['expectancy']:+.1f}%(想定{_price(implied)}／勝率{h['win_rate']:.0f}%)"
-            )
-
         detail = summary.horizons[-1]
         if "p25" in detail:
             rng = lambda lo, hi: (  # noqa: E731
@@ -607,29 +605,21 @@ def format_summary(summary: HoldingSummary) -> str:
             )
             lines.append(DIVIDER)
             lines.append(f"■{detail['days']}日後の見通し(信頼度{detail['stars']})")
-            lines.append(f"期待値：{detail['expectancy']:+.1f}%／勝率：{detail['win_rate']:.0f}%")
-            lines.append(f"期待価格：{_price(price * (1 + detail['expectancy'] / 100))}")
+            lines.append(
+                f"期待価格：{_price(price * (1 + detail['expectancy'] / 100))}"
+                f"({detail['expectancy']:+.1f}%／勝率{detail['win_rate']:.0f}%)"
+            )
             lines.append(f"50%レンジ：{rng('p25', 'p75')}")
             lines.append(f"80%レンジ：{rng('p10', 'p90')}")
-            lines.append(f"95%レンジ：{rng('p2_5', 'p97_5')}")
             lines.append(
-                f"+3/+5/+10%以上の確率：{detail['prob_up_3']:.0f}%/{detail['prob_up_5']:.0f}%/{detail['prob_up_10']:.0f}%"
+                f"+5%以上：{detail['prob_up_5']:.0f}%／-5%以下：{detail['prob_down_5']:.0f}%"
             )
-            lines.append(
-                f"-3/-5/-10%以下の確率：{detail['prob_down_3']:.0f}%/{detail['prob_down_5']:.0f}%/{detail['prob_down_10']:.0f}%"
-            )
-            lines.append(f"過去最大：+{detail['max_win']:.1f}%／最大下落：{detail['max_loss']:.1f}%")
-
-    if summary.backtest:
-        from stock_analyzer.backtest_stats import format_backtest_lines
-
-        lines.append(DIVIDER)
-        lines.append("■バックテスト実績")
-        lines.extend(format_backtest_lines(summary.backtest))
+            lines.append("※期待値の1点よりブレ幅(レンジ)を重視。レンジ外もあり得る")
 
     lines.append(DIVIDER)
     lines.append("■判断理由")
-    lines.extend(f"・{reason}" for reason in summary.reasons) if summary.reasons else lines.append(
+    reasons = summary.reasons[:3]
+    lines.extend(f"・{reason}" for reason in reasons) if reasons else lines.append(
         "・明確なシグナルなし"
     )
 
@@ -637,6 +627,7 @@ def format_summary(summary: HoldingSummary) -> str:
         lines.append(DIVIDER)
         lines.append("■注意点")
         lines.extend(f"・{risk}" for risk in summary.risks)
+        lines.append("※該当した銘柄だけに表示。売買前に必ず確認")
 
     lines.append(DIVIDER)
     return "\n".join(lines)
