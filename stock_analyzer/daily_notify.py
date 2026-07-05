@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 from stock_analyzer.cli import collect_report_data, discord_embeds_from, flex_messages_from
 from stock_analyzer.discord import send_discord
+from stock_analyzer.judgment_log import append_judgments
 from stock_analyzer.market_calendar import is_market_closed
 from stock_analyzer.notifier import broadcast_messages
 from stock_analyzer.portfolio import (
@@ -25,6 +26,7 @@ GOOGLE_SERVICE_ACCOUNT_ENV_VAR = "GOOGLE_SERVICE_ACCOUNT_JSON"
 GOOGLE_SHEET_ID_ENV_VAR = "GOOGLE_SHEET_ID"
 ANALYZE_SYMBOLS_ENV_VAR = "ANALYZE_SYMBOLS"
 SKIP_IF_CLOSED_ENV_VAR = "SKIP_IF_MARKET_CLOSED"
+JUDGMENT_LOG_ENV_VAR = "JUDGMENT_LOG"
 
 
 def holdings_from_symbols(text: str) -> list[Holding]:
@@ -96,6 +98,14 @@ def main() -> None:
     if line_token:
         broadcast_messages(flex_messages_from(data), line_token)
         print("LINEへの通知を送信しました")
+
+    # Accumulate score/judgment history so the scoring can be verified against
+    # what prices actually did (see verify_log). On-demand watch runs are not
+    # logged to keep the record limited to real portfolio judgments.
+    log_path = os.environ.get(JUDGMENT_LOG_ENV_VAR)
+    if log_path and not symbols_text.strip() and data.summaries:
+        append_judgments(log_path, data.summaries)
+        print(f"判断ログを追記しました: {log_path}")
 
 
 if __name__ == "__main__":

@@ -12,6 +12,9 @@ on:
         required: false
         default: ""
 
+permissions:
+  contents: write # the workflow commits the judgment log back to the repo
+
 jobs:
   notify:
     runs-on: ubuntu-latest
@@ -33,7 +36,21 @@ jobs:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           ANALYZE_SYMBOLS: ${{ inputs.symbols }}
           SKIP_IF_MARKET_CLOSED: ${{ github.event_name == 'schedule' && '1' || '' }}
+          JUDGMENT_LOG: data/judgment_log.csv
         run: python -m stock_analyzer.daily_notify
+
+      - name: Commit judgment log
+        run: |
+          if [ -f data/judgment_log.csv ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/judgment_log.csv
+            if ! git diff --cached --quiet; then
+              git commit -m "chore: 判断ログ追記 ($(TZ=Asia/Tokyo date +%F))"
+              git pull --rebase origin main
+              git push
+            fi
+          fi
 
       - name: Alert on failure
         if: failure()
