@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from stock_analyzer.market import vix_regime_label
 from stock_analyzer.summary import (
     RATING_LABEL,
     HoldingSummary,
@@ -135,6 +136,11 @@ def market_bubble(sentiment: str, snapshot: dict[str, tuple[float | None, float 
 
     rows = []
     for name, (price, change) in snapshot.items():
+        if name == "VIX":
+            # For VIX the level (risk regime) matters more than the daily change.
+            vix_text = f"{price:.1f}({vix_regime_label(price)})" if price is not None else "—"
+            rows.append(_kv_row(name, vix_text))
+            continue
         change_text = f"{change:+.2f}%" if change is not None else "—"
         change_color = None
         if change is not None:

@@ -193,6 +193,30 @@ def evaluate_volume_price(closes: list[float], volumes: list[float], window: int
     return "価格下落×出来高減少(下げ渋り)"
 
 
+def average_true_range(
+    highs: list[float], lows: list[float], closes: list[float], period: int = 14
+) -> float | None:
+    """Return the ATR: the average daily trading range including gaps.
+
+    Used to size stop-loss/target distances to each stock's own volatility
+    instead of a flat percentage.
+    """
+    n = len(closes)
+    if n < period + 1 or len(highs) != n or len(lows) != n:
+        return None
+
+    true_ranges = []
+    for i in range(n - period, n):
+        true_ranges.append(
+            max(
+                highs[i] - lows[i],
+                abs(highs[i] - closes[i - 1]),
+                abs(lows[i] - closes[i - 1]),
+            )
+        )
+    return sum(true_ranges) / period
+
+
 def support_resistance(highs: list[float], lows: list[float], window: int = 60) -> SupportResistance | None:
     """Return the support (window low) and resistance (window high) over the last `window` days."""
     if len(highs) < window or len(lows) < window:

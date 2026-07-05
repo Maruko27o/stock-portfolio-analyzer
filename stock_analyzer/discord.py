@@ -5,6 +5,7 @@ import time
 import requests
 
 from stock_analyzer.flex import RATING_COLOR, SENTIMENT_COLOR
+from stock_analyzer.market import vix_regime_label
 from stock_analyzer.summary import (
     RATING_EMOJI,
     RATING_LABEL,
@@ -30,7 +31,11 @@ def _price(value: float | None) -> str:
 
 def market_embed(sentiment: str, snapshot: dict[str, tuple[float | None, float | None]]) -> dict:
     lines = []
-    for name, (_, change) in snapshot.items():
+    for name, (price, change) in snapshot.items():
+        if name == "VIX":
+            vix_text = f"{price:.1f}({vix_regime_label(price)})" if price is not None else "—"
+            lines.append(f"{name}: {vix_text}")
+            continue
         change_text = f"{change:+.2f}%" if change is not None else "—"
         lines.append(f"{name}: {change_text}")
     return {

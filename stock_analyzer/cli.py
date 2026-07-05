@@ -5,7 +5,11 @@ import time
 from dataclasses import dataclass
 
 from stock_analyzer.analysis import HoldingAnalysis, analyze_holding
-from stock_analyzer.data_fetcher import fetch_fundamentals
+from stock_analyzer.data_fetcher import (
+    fetch_fundamentals,
+    fetch_price_history,
+    split_confirmed_history,
+)
 from stock_analyzer.discord import failed_embed, holding_embed, market_embed, swing_embed
 from stock_analyzer.fundamentals import (
     evaluate_current_ratio,
@@ -22,6 +26,7 @@ from stock_analyzer.indicators import (
     evaluate_bollinger,
     evaluate_macd,
     evaluate_price_position,
+    rate_of_change,
 )
 from stock_analyzer.flex import holding_bubble, market_bubble, swing_bubble, to_flex_messages
 from stock_analyzer.market import evaluate_market_sentiment, fetch_market_snapshot
@@ -79,19 +84,19 @@ def _build_detailed_block(a: HoldingAnalysis) -> list[str]:
     ]
 
 
-def _market_section() -> tuple[str, list[str]]:
-    """Return (sentiment, detailed market lines)."""
+def _market_section() -> tuple[str, list[str], dict]:
+    """Return (sentiment, detailed market lines, snapshot)."""
     snapshot = fetch_market_snapshot()
     sentiment = evaluate_market_sentiment(snapshot)
     lines = ["【市場環境】", f"市場全体: {sentiment}"]
     for name, (price, change) in snapshot.items():
         lines.append(f"{name}: {_fmt(price)} ({_fmt(change, '{:+.2f}%')})")
-    return sentiment, lines
+    return sentiment, lines, snapshot
 
 
 def generate_report(holdings: list[Holding]) -> list[str]:
     """Build the full detailed report (all indicators) — used for local CLI inspection."""
-    sentiment, market_lines = _market_section()
+    sentiment, market_lines, _ = _market_section()
     lines: list[str] = [*market_lines, ""]
     for holding in holdings:
         lines.extend(_build_detailed_block(analyze_holding(holding)))
@@ -104,8 +109,13 @@ def generate_summary(holdings: list[Holding], include_swing_pick: bool = True) -
 
     Holdings are ordered by their overall score, highest first.
     """
-    sentiment, _ = _market_section()
-    summaries = [build_summary(analyze_holding(holding), sentiment) for holding in holdings]
+    sentiment, _, snapshot = _market_section()
+    vix = snapshot.get("VIX", (None, None))[0]
+    benchmark_momentum = _benchmark_momentum()
+    summaries = [
+        build_summary(analyze_holding(holding), sentiment, vix, benchmark_momentum)
+        for holding in holdings
+    ]
     summaries.sort(key=lambda s: s.raw_score, reverse=True)
 
     lines: list[str] = [format_market_header(sentiment), ""]
@@ -143,6 +153,18 @@ class ReportData:
         return not self.snapshot and not self.summaries and not self.swing_picks
 
 
+BENCHMARK_TICKER = "1306.T"  # TOPIX ETF: baseline to separate stock strength from market tide
+
+
+def _benchmark_momentum() -> float | None:
+    """Return the market benchmark's 10-day rate of change, or None on failure."""
+    try:
+        confirmed, _ = split_confirmed_history(fetch_price_history(BENCHMARK_TICKER))
+        return rate_of_change(confirmed["Close"].tolist(), 10)
+    except Exception:
+        return None
+
+
 def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True) -> ReportData:
     """Fetch and compute everything once, tolerating individual failures."""
     snapshot: dict | None = None
@@ -152,11 +174,16 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
     except Exception:
         sentiment = "中立"  # neutral fallback so holding scores can still be computed
 
+    vix = snapshot.get("VIX", (None, None))[0] if snapshot else None
+    benchmark_momentum = _benchmark_momentum()
+
     summaries = []
     failed_symbols = []
     for holding in holdings:
         try:
-            summaries.append(build_summary(_analyze_with_retry(holding), sentiment))
+            summaries.append(
+                build_summary(_analyze_with_retry(holding), sentiment, vix, benchmark_momentum)
+            )
         except Exception:
             failed_symbols.append(holding.symbol)
     summaries.sort(key=lambda s: s.raw_score, reverse=True)

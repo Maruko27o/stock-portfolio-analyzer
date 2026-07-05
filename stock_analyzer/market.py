@@ -50,6 +50,21 @@ def fetch_market_snapshot() -> dict[str, tuple[float | None, float | None]]:
     return snapshot
 
 
+def vix_regime_label(vix: float | None) -> str:
+    """Classify the VIX level into a plain-language market-stress label."""
+    if vix is None:
+        return "データ不足"
+    if vix >= 30:
+        return "リスクオフ"
+    if vix >= 25:
+        return "警戒"
+    if vix > 20:
+        return "やや不安定"
+    if vix >= 15:
+        return "平常"
+    return "安定"
+
+
 def evaluate_market_sentiment(snapshot: dict[str, tuple[float | None, float | None]]) -> str:
     """Judge overall market sentiment from how many equity indices rose vs fell today."""
     changes = [
