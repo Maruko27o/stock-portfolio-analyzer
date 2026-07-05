@@ -123,14 +123,43 @@ def holding_bubble(summary: HoldingSummary) -> dict:
         )
 
     if summary.horizons and summary.current_price is not None:
+        price = summary.current_price
         body_contents.append(_sep())
         body_contents.append(
             _text(f"■ 期間別の期待値({summary.horizons[0]['band']}帯実績)", weight="bold", size="sm")
         )
         for h in summary.horizons:
-            implied = summary.current_price * (1 + h["expectancy"] / 100)
+            implied = price * (1 + h["expectancy"] / 100)
             body_contents.append(
                 _kv_row(f"{h['days']}日後", f"{h['expectancy']:+.1f}% → {_price(implied)}")
+            )
+
+        detail = summary.horizons[-1]
+        if "p25" in detail:
+            rng = lambda lo, hi: (  # noqa: E731
+                f"{_price(price * (1 + detail[lo] / 100))}〜{_price(price * (1 + detail[hi] / 100))}"
+            )
+            body_contents.append(_sep())
+            body_contents.append(
+                _text(f"■ {detail['days']}日後の見通し", weight="bold", size="sm")
+            )
+            body_contents.append(
+                _kv_row("期待価格", _price(price * (1 + detail["expectancy"] / 100)))
+            )
+            body_contents.append(_kv_row("50%レンジ", rng("p25", "p75")))
+            body_contents.append(_kv_row("80%レンジ", rng("p10", "p90")))
+            body_contents.append(_kv_row("+5%以上の確率", f"{detail['prob_up_5']:.0f}%"))
+            body_contents.append(
+                _kv_row("-5%以下の確率", f"{detail['prob_down_5']:.0f}%", PROFIT_DOWN_COLOR)
+            )
+            body_contents.append(_kv_row("信頼度", detail["stars"]))
+            body_contents.append(
+                _text(
+                    f"過去最大 +{detail['max_win']:.1f}% / {detail['max_loss']:.1f}%"
+                    f"｜中央値{detail['median']:+.1f}%",
+                    size="xxs",
+                    color=MUTED,
+                )
             )
 
     if summary.backtest:

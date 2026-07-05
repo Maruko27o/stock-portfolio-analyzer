@@ -81,11 +81,25 @@ def holding_embed(summary: HoldingSummary) -> dict:
 
         parts.append(f"**{format_strategy_compact(summary.strategy_stats)}**")
     if summary.horizons and summary.current_price is not None:
+        price = summary.current_price
         horizon_parts = []
         for h in summary.horizons:
-            implied = summary.current_price * (1 + h["expectancy"] / 100)
+            implied = price * (1 + h["expectancy"] / 100)
             horizon_parts.append(f"{h['days']}日{h['expectancy']:+.1f}%({_price(implied)})")
         parts.append(f"期間別期待値({summary.horizons[0]['band']}帯): " + " / ".join(horizon_parts))
+
+        detail = summary.horizons[-1]
+        if "p25" in detail:
+            rng = lambda lo, hi: (  # noqa: E731
+                f"{_price(price * (1 + detail[lo] / 100))}〜{_price(price * (1 + detail[hi] / 100))}"
+            )
+            parts.append(
+                f"**{detail['days']}日後の見通し**(信頼度{detail['stars']}): "
+                f"期待{_price(price * (1 + detail['expectancy'] / 100))}"
+                f" / 50%レンジ{rng('p25', 'p75')} / 80%レンジ{rng('p10', 'p90')}"
+                f" / +5%以上{detail['prob_up_5']:.0f}% / -5%以下{detail['prob_down_5']:.0f}%"
+                f" / 過去最大+{detail['max_win']:.1f}%〜{detail['max_loss']:.1f}%"
+            )
     if summary.backtest:
         from stock_analyzer.backtest_stats import format_backtest_compact
 

@@ -591,13 +591,34 @@ def format_summary(summary: HoldingSummary) -> str:
         lines.append(f"信頼度：検証{st['count']:,}件(学習期間外)")
 
     if summary.horizons and summary.current_price is not None:
+        price = summary.current_price
         lines.append(DIVIDER)
         lines.append(f"■期間別の期待値({summary.horizons[0]['band']}帯実績)")
         for h in summary.horizons:
-            implied = summary.current_price * (1 + h["expectancy"] / 100)
+            implied = price * (1 + h["expectancy"] / 100)
             lines.append(
                 f"{h['days']}日後：{h['expectancy']:+.1f}%(想定{_price(implied)}／勝率{h['win_rate']:.0f}%)"
             )
+
+        detail = summary.horizons[-1]
+        if "p25" in detail:
+            rng = lambda lo, hi: (  # noqa: E731
+                f"{_price(price * (1 + detail[lo] / 100))}〜{_price(price * (1 + detail[hi] / 100))}"
+            )
+            lines.append(DIVIDER)
+            lines.append(f"■{detail['days']}日後の見通し(信頼度{detail['stars']})")
+            lines.append(f"期待値：{detail['expectancy']:+.1f}%／勝率：{detail['win_rate']:.0f}%")
+            lines.append(f"期待価格：{_price(price * (1 + detail['expectancy'] / 100))}")
+            lines.append(f"50%レンジ：{rng('p25', 'p75')}")
+            lines.append(f"80%レンジ：{rng('p10', 'p90')}")
+            lines.append(f"95%レンジ：{rng('p2_5', 'p97_5')}")
+            lines.append(
+                f"+3/+5/+10%以上の確率：{detail['prob_up_3']:.0f}%/{detail['prob_up_5']:.0f}%/{detail['prob_up_10']:.0f}%"
+            )
+            lines.append(
+                f"-3/-5/-10%以下の確率：{detail['prob_down_3']:.0f}%/{detail['prob_down_5']:.0f}%/{detail['prob_down_10']:.0f}%"
+            )
+            lines.append(f"過去最大：+{detail['max_win']:.1f}%／最大下落：{detail['max_loss']:.1f}%")
 
     if summary.backtest:
         from stock_analyzer.backtest_stats import format_backtest_lines

@@ -388,6 +388,13 @@ def compute_stats(returns: np.ndarray, holds: np.ndarray, entry_dates: np.ndarra
     annual_return = expectancy * trades_per_year_equiv
     calmar = float(annual_return / abs(max_drawdown)) if max_drawdown < 0 else 0.0
 
+    # リターン分布(平均だけでなく「どの確率でどの値動きか」を出すため)
+    p = lambda q: round(float(np.percentile(returns, q)), 2)  # noqa: E731
+    var95 = p(5)
+    tail = returns[returns <= np.percentile(returns, 5)]
+    cvar95 = round(float(tail.mean()), 2) if len(tail) else None
+    prob = lambda mask: round(float(mask.mean() * 100), 1)  # noqa: E731
+
     return {
         "count": int(count),
         "win_rate": round(float(win_rate), 2),
@@ -406,6 +413,21 @@ def compute_stats(returns: np.ndarray, holds: np.ndarray, entry_dates: np.ndarra
         "calmar": round(calmar, 2),
         "volatility": round(volatility, 2),
         "signals_per_year": round(count * sample_step / years, 1),
+        "median": p(50),
+        "p2_5": p(2.5),
+        "p10": p(10),
+        "p25": p(25),
+        "p75": p(75),
+        "p90": p(90),
+        "p97_5": p(97.5),
+        "var95": var95,
+        "cvar95": cvar95,
+        "prob_up_3": prob(returns >= 3),
+        "prob_up_5": prob(returns >= 5),
+        "prob_up_10": prob(returns >= 10),
+        "prob_down_3": prob(returns <= -3),
+        "prob_down_5": prob(returns <= -5),
+        "prob_down_10": prob(returns <= -10),
     }
 
 

@@ -98,28 +98,37 @@ HORIZON_RULES = [
 ]
 
 
-def horizon_expectations(stats: dict | None, score: float | None) -> list[dict]:
-    """保有期間(5/10/20/30営業日)ごとの該当スコア帯実績を返す。
+def confidence_stars(count: int) -> str | None:
+    """サンプル件数を信頼度(★)に変換。100件未満は表示しない(None)。"""
+    if count >= 5000:
+        return "★★★★★"
+    if count >= 1000:
+        return "★★★★"
+    if count >= 300:
+        return "★★★"
+    if count >= 100:
+        return "★★"
+    return None
 
-    短期〜中期で「何日持つと期待値・勝率がどうなるか」を通知に出すための
-    データ。件数不足の期間は含めない。
+
+def horizon_expectations(stats: dict | None, score: float | None) -> list[dict]:
+    """保有期間(5/10/20/30営業日)ごとの該当スコア帯実績(分布込み)を返す。
+
+    短期〜中期で「何日持つとどの確率でどの値動きか」を通知に出すための
+    データ。100件未満の期間は信頼できないため含めない。
     """
     if stats is None or score is None:
         return []
     label = band_label_for(score)
-    min_count = stats.get("metadata", {}).get("min_band_count", 30)
     out = []
     for rule_name, days in HORIZON_RULES:
         band = stats.get("rules", {}).get(rule_name, {}).get("bands", {}).get(label)
-        if band and band.get("count", 0) >= min_count:
-            out.append(
-                {
-                    "days": days,
-                    "expectancy": band["expectancy"],
-                    "win_rate": band["win_rate"],
-                    "band": label,
-                }
-            )
+        if not band:
+            continue
+        stars = confidence_stars(band.get("count", 0))
+        if stars is None:
+            continue
+        out.append({"days": days, "band": label, "stars": stars, **band})
     return out
 
 

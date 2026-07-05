@@ -109,11 +109,23 @@ def test_horizon_expectations_returns_periods_with_enough_samples():
     from stock_analyzer.backtest_stats import horizon_expectations
 
     result = horizon_expectations(FAKE_HORIZON_STATS, 77)
-    assert [h["days"] for h in result] == [5, 10, 20]  # 30日は件数不足で除外
-    assert result[0] == {"days": 5, "expectancy": 0.4, "win_rate": 54.0, "band": "75-79"}
+    assert [h["days"] for h in result] == [5, 10, 20]  # 30日は100件未満で除外
+    assert result[0]["expectancy"] == 0.4
+    assert result[0]["band"] == "75-79"
+    assert result[0]["stars"] == "★★★"  # 900件(300以上)
     assert horizon_expectations(FAKE_HORIZON_STATS, None) == []
     assert horizon_expectations(None, 77) == []
     assert horizon_expectations(FAKE_HORIZON_STATS, 30) == []  # 帯データなし
+
+
+def test_confidence_stars_thresholds():
+    from stock_analyzer.backtest_stats import confidence_stars
+
+    assert confidence_stars(6000) == "★★★★★"
+    assert confidence_stars(1500) == "★★★★"
+    assert confidence_stars(400) == "★★★"
+    assert confidence_stars(150) == "★★"
+    assert confidence_stars(99) is None
 
 
 def test_format_backtest_outputs_required_metrics():
