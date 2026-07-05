@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yfinance as yf
 
-from stock_analyzer.data_fetcher import fetch_fundamentals
+from stock_analyzer.data_fetcher import fetch_fundamentals, split_confirmed_history
 from stock_analyzer.indicators import (
     bollinger_sigma,
     evaluate_macd,
@@ -164,13 +164,14 @@ def screen_universe(tickers: list[str]) -> list[SwingCandidate]:
             frame = data[ticker].dropna()
         except (KeyError, TypeError):
             continue
-        if len(frame) < MIN_HISTORY:
+        confirmed, current_price = split_confirmed_history(frame)
+        if confirmed is None or len(confirmed) < MIN_HISTORY:
             continue
 
-        closes = frame["Close"].tolist()
-        highs = frame["High"].tolist()
-        lows = frame["Low"].tolist()
-        volumes = frame["Volume"].tolist()
+        closes = confirmed["Close"].tolist()
+        highs = confirmed["High"].tolist()
+        lows = confirmed["Low"].tolist()
+        volumes = confirmed["Volume"].tolist()
 
         result = swing_score(closes, highs, lows, volumes)
         if result is None:
@@ -178,7 +179,7 @@ def screen_universe(tickers: list[str]) -> list[SwingCandidate]:
         raw_score, reasons = result
         candidates.append(
             SwingCandidate(
-                symbol=ticker, raw_score=raw_score, reasons=reasons, current_price=closes[-1]
+                symbol=ticker, raw_score=raw_score, reasons=reasons, current_price=current_price
             )
         )
 

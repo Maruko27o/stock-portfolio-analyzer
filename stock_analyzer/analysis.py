@@ -7,6 +7,7 @@ from stock_analyzer.data_fetcher import (
     fetch_fundamentals,
     fetch_next_earnings_date,
     fetch_price_history,
+    split_confirmed_history,
 )
 from stock_analyzer.indicators import (
     MACDResult,
@@ -87,10 +88,14 @@ class HoldingAnalysis:
 def analyze_holding(holding: Holding) -> HoldingAnalysis:
     """Fetch data and compute every indicator/fundamental for one holding."""
     history = fetch_price_history(holding.symbol)
-    closes = history["Close"].tolist()
-    highs = history["High"].tolist()
-    lows = history["Low"].tolist()
-    volumes = history["Volume"].tolist()
+    confirmed, current_price = split_confirmed_history(history)
+    if confirmed is not None and len(confirmed):
+        closes = confirmed["Close"].tolist()
+        highs = confirmed["High"].tolist()
+        lows = confirmed["Low"].tolist()
+        volumes = confirmed["Volume"].tolist()
+    else:
+        closes, highs, lows, volumes = [], [], [], []
 
     fundamentals = fetch_fundamentals(holding.symbol)
     next_earnings = fetch_next_earnings_date(holding.symbol)
@@ -102,7 +107,7 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
     return HoldingAnalysis(
         holding=holding,
         name=holding.name or fundamentals["name"],
-        current_price=closes[-1] if closes else None,
+        current_price=current_price,
         sma_short=simple_moving_average(closes, SMA_SHORT),
         sma_mid=simple_moving_average(closes, SMA_MID),
         sma_long=simple_moving_average(closes, SMA_LONG),
