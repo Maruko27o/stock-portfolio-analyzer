@@ -110,6 +110,18 @@ def holding_bubble(summary: HoldingSummary) -> dict:
     if summary.add_price is not None:
         body_contents.append(_kv_row("押し目買い", _price(summary.add_price)))
 
+    if summary.strategy_stats:
+        st = summary.strategy_stats
+        scope = f"({st['regime']}相場)" if st.get("regime") else ""
+        body_contents.append(_sep())
+        body_contents.append(_text(f"■ 戦略: {st['strategy']}{scope}", weight="bold", size="sm"))
+        body_contents.append(_kv_row("検証勝率", f"{st['win_rate']:.1f}%"))
+        st_color = PROFIT_UP_COLOR if st["expectancy"] >= 0 else PROFIT_DOWN_COLOR
+        body_contents.append(_kv_row("検証期待値", f"{st['expectancy']:+.1f}%", st_color))
+        body_contents.append(
+            _text(f"信頼度: 検証{st['count']:,}件(2023年以降・学習期間外)", size="xxs", color=MUTED)
+        )
+
     if summary.backtest:
         bt = summary.backtest
         body_contents.append(_sep())

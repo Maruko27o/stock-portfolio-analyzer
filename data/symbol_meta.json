@@ -1,0 +1,1436 @@
+{
+ "1332.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 392282112000,
+  "pbr": 1.3070792,
+  "dividend_yield": 2.4739080015461923
+ },
+ "1605.T": {
+  "sector": "Energy",
+  "market_cap": 3767819304960,
+  "pbr": 0.7705248,
+  "dividend_yield": 3.3312769895126464
+ },
+ "1721.T": {
+  "sector": "Industrials",
+  "market_cap": 629780774912,
+  "pbr": 1.5730726,
+  "dividend_yield": 2.476609796367639
+ },
+ "1801.T": {
+  "sector": "Industrials",
+  "market_cap": 2388083605504,
+  "pbr": 2.5188787,
+  "dividend_yield": 2.5938566552901023
+ },
+ "1802.T": {
+  "sector": "Industrials",
+  "market_cap": 2271928123392,
+  "pbr": 1.8053756,
+  "dividend_yield": 2.844175491679274
+ },
+ "1803.T": {
+  "sector": "Industrials",
+  "market_cap": 1765244141568,
+  "pbr": 1.8049953,
+  "dividend_yield": 2.9626779530588685
+ },
+ "1808.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 747620466688,
+  "pbr": 1.3285477,
+  "dividend_yield": 3.5398230088495577
+ },
+ "1812.T": {
+  "sector": "Industrials",
+  "market_cap": 2849686945792,
+  "pbr": 2.0178604,
+  "dividend_yield": 2.382506527415144
+ },
+ "1925.T": {
+  "sector": "Real Estate",
+  "market_cap": 2788919869440,
+  "pbr": 0.962778,
+  "dividend_yield": 2.909171663335554
+ },
+ "1928.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 2233180618752,
+  "pbr": 1.0340418,
+  "dividend_yield": 4.238026124818578
+ },
+ "1963.T": {
+  "sector": "Industrials",
+  "market_cap": 603054735360,
+  "pbr": 1.4043535,
+  "dividend_yield": 2.0854220974533786
+ },
+ "2002.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 558389854208,
+  "pbr": 1.0804167,
+  "dividend_yield": 3.254882323485228
+ },
+ "2269.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 1035067260928,
+  "pbr": 1.3397436,
+  "dividend_yield": 2.8810895756940806
+ },
+ "2282.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 575813582848,
+  "pbr": 1.0723997,
+  "dividend_yield": 2.942618930848455
+ },
+ "2413.T": {
+  "sector": "Healthcare",
+  "market_cap": 1241752010752,
+  "pbr": 3.0418718,
+  "dividend_yield": 1.182477828540715
+ },
+ "2432.T": {
+  "sector": "Industrials",
+  "market_cap": 249459556352,
+  "pbr": 1.2297977,
+  "dividend_yield": 2.4774774774774775
+ },
+ "2501.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 740114235392,
+  "pbr": 3.443622,
+  "dividend_yield": 2.106926520937582
+ },
+ "2502.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 2271832440832,
+  "pbr": 0.8303326,
+  "dividend_yield": 3.34835801674179
+ },
+ "2503.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 2248341716992,
+  "pbr": 1.7228848,
+  "dividend_yield": 2.701261773591612
+ },
+ "2531.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 406403383296,
+  "pbr": 1.5722148,
+  "dividend_yield": 1.4664143803216652
+ },
+ "2801.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 1511646822400,
+  "pbr": 2.694926,
+  "dividend_yield": 1.5323322096230463
+ },
+ "2802.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 5894818496512,
+  "pbr": 7.6681185,
+  "dividend_yield": 0.8107669855683477
+ },
+ "2871.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 542335860736,
+  "pbr": 1.8940024,
+  "dividend_yield": 2.310536044362292
+ },
+ "2914.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 10753340866560,
+  "pbr": 2.6319654,
+  "dividend_yield": 3.9953772494634303
+ },
+ "3086.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 782573568000,
+  "pbr": 1.8921041,
+  "dividend_yield": 1.7648912700913961
+ },
+ "3099.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 1372757164032,
+  "pbr": 2.2248805,
+  "dividend_yield": 2.0366598778004072
+ },
+ "3101.T": {
+  "sector": "Basic Materials",
+  "market_cap": 153634144256,
+  "pbr": 0.72022533,
+  "dividend_yield": 2.2975301550832854
+ },
+ "3103.T": {
+  "sector": "Basic Materials",
+  "market_cap": 59441119232,
+  "pbr": 1.105182,
+  "dividend_yield": null
+ },
+ "3105.T": {
+  "sector": "Industrials",
+  "market_cap": 387372122112,
+  "pbr": 1.7010279,
+  "dividend_yield": 1.4516129032258065
+ },
+ "3289.T": {
+  "sector": "Real Estate",
+  "market_cap": 950431055872,
+  "pbr": 1.058293,
+  "dividend_yield": 3.749531308586427
+ },
+ "3382.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 4678967361536,
+  "pbr": 1.2923361,
+  "dividend_yield": 2.9644268774703555
+ },
+ "3401.T": {
+  "sector": "Industrials",
+  "market_cap": 331525980160,
+  "pbr": 0.9096337,
+  "dividend_yield": 2.909514111143439
+ },
+ "3402.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 1710184333312,
+  "pbr": 0.94929004,
+  "dividend_yield": 1.9599488708990203
+ },
+ "3405.T": {
+  "sector": "Basic Materials",
+  "market_cap": 520340176896,
+  "pbr": 0.7025503,
+  "dividend_yield": 3.126809496236248
+ },
+ "3407.T": {
+  "sector": "Industrials",
+  "market_cap": 2499711860736,
+  "pbr": 1.2009145,
+  "dividend_yield": 2.3796646836127637
+ },
+ "3436.T": {
+  "sector": "Technology",
+  "market_cap": 1781439135744,
+  "pbr": 3.1288946,
+  "dividend_yield": 0.39261876717707106
+ },
+ "3659.T": {
+  "sector": "Communication Services",
+  "market_cap": 1809641897984,
+  "pbr": 1.7068231,
+  "dividend_yield": 2.621231979030144
+ },
+ "3861.T": {
+  "sector": "Basic Materials",
+  "market_cap": 691446611968,
+  "pbr": 0.64747876,
+  "dividend_yield": 4.421518054532056
+ },
+ "3863.T": {
+  "sector": "Basic Materials",
+  "market_cap": 150938828800,
+  "pbr": 0.296852,
+  "dividend_yield": 1.5278838808250574
+ },
+ "4004.T": {
+  "sector": "Basic Materials",
+  "market_cap": 3167211487232,
+  "pbr": 4.4609423,
+  "dividend_yield": 0.37142857142857144
+ },
+ "4005.T": {
+  "sector": "Basic Materials",
+  "market_cap": 914882101248,
+  "pbr": 0.90704286,
+  "dividend_yield": 2.888086642599278
+ },
+ "4021.T": {
+  "sector": "Basic Materials",
+  "market_cap": 1155709534208,
+  "pbr": 4.5324035,
+  "dividend_yield": 2.457401182334531
+ },
+ "4042.T": {
+  "sector": "Basic Materials",
+  "market_cap": 870252675072,
+  "pbr": 1.0462384,
+  "dividend_yield": 3.5379444542720675
+ },
+ "4043.T": {
+  "sector": "Basic Materials",
+  "market_cap": 361884155904,
+  "pbr": 1.2783587,
+  "dividend_yield": 2.3856858846918487
+ },
+ "4061.T": {
+  "sector": "Basic Materials",
+  "market_cap": 363159388160,
+  "pbr": 1.1688125,
+  "dividend_yield": 2.373605506764776
+ },
+ "4063.T": {
+  "sector": "Basic Materials",
+  "market_cap": 12938741022720,
+  "pbr": 2.893765,
+  "dividend_yield": 1.5234262719172176
+ },
+ "4151.T": {
+  "sector": "Healthcare",
+  "market_cap": 1394307235840,
+  "pbr": 1.5618274,
+  "dividend_yield": 2.628120893561104
+ },
+ "4183.T": {
+  "sector": "Basic Materials",
+  "market_cap": 803192569856,
+  "pbr": 0.9288418,
+  "dividend_yield": 3.4372135655362053
+ },
+ "4188.T": {
+  "sector": "Basic Materials",
+  "market_cap": 1579990646784,
+  "pbr": 0.8968686,
+  "dividend_yield": 2.751504729148753
+ },
+ "4208.T": {
+  "sector": "Basic Materials",
+  "market_cap": 315041873920,
+  "pbr": 0.72056836,
+  "dividend_yield": 4.933703361085414
+ },
+ "4272.T": {
+  "sector": "Basic Materials",
+  "market_cap": 301621510144,
+  "pbr": 1.0823047,
+  "dividend_yield": 3.245635603639046
+ },
+ "4307.T": {
+  "sector": "Technology",
+  "market_cap": 2752427327488,
+  "pbr": 6.4998674,
+  "dividend_yield": 1.7107942973523422
+ },
+ "4324.T": {
+  "sector": "Communication Services",
+  "market_cap": 841838559232,
+  "pbr": 2.0176845,
+  "dividend_yield": null
+ },
+ "4452.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 2975366905856,
+  "pbr": 2.7743287,
+  "dividend_yield": 3.557312252964427
+ },
+ "4502.T": {
+  "sector": "Healthcare",
+  "market_cap": 8466546556928,
+  "pbr": 1.1395668,
+  "dividend_yield": 3.8066803508117184
+ },
+ "4503.T": {
+  "sector": "Healthcare",
+  "market_cap": 3855291252736,
+  "pbr": 2.1078181,
+  "dividend_yield": 3.717472118959108
+ },
+ "4506.T": {
+  "sector": "Healthcare",
+  "market_cap": 698459947008,
+  "pbr": 2.115038,
+  "dividend_yield": null
+ },
+ "4507.T": {
+  "sector": "Healthcare",
+  "market_cap": 2441448521728,
+  "pbr": 1.4487462,
+  "dividend_yield": 2.6490066225165565
+ },
+ "4519.T": {
+  "sector": "Healthcare",
+  "market_cap": 12576921485312,
+  "pbr": 6.592665,
+  "dividend_yield": 1.7272965192358023
+ },
+ "4523.T": {
+  "sector": "Healthcare",
+  "market_cap": 1200914169856,
+  "pbr": 1.3342104,
+  "dividend_yield": 3.7602820211515864
+ },
+ "4543.T": {
+  "sector": "Healthcare",
+  "market_cap": 3330737438720,
+  "pbr": 2.1020646,
+  "dividend_yield": 1.5943312666076175
+ },
+ "4568.T": {
+  "sector": "Healthcare",
+  "market_cap": 4821171044352,
+  "pbr": 2.897028,
+  "dividend_yield": 3.7742970371768254
+ },
+ "4578.T": {
+  "sector": "Healthcare",
+  "market_cap": 5945137037312,
+  "pbr": 1.917123,
+  "dividend_yield": 1.238938053097345
+ },
+ "4631.T": {
+  "sector": "Basic Materials",
+  "market_cap": 453644615680,
+  "pbr": 0.93948734,
+  "dividend_yield": 2.9221456898351073
+ },
+ "4661.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 4170619289600,
+  "pbr": 3.791402,
+  "dividend_yield": 0.6290544525260469
+ },
+ "4676.T": {
+  "sector": "Communication Services",
+  "market_cap": 565509947392,
+  "pbr": 1.0343759,
+  "dividend_yield": 5.037783375314862
+ },
+ "4689.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 3005614129152,
+  "pbr": 1.002214,
+  "dividend_yield": 2.5102692834322227
+ },
+ "4704.T": {
+  "sector": "Technology",
+  "market_cap": 813251887104,
+  "pbr": 7.121421,
+  "dividend_yield": 2.951970639859582
+ },
+ "4751.T": {
+  "sector": "Communication Services",
+  "market_cap": 739857530880,
+  "pbr": 3.7256167,
+  "dividend_yield": 1.3022618231665526
+ },
+ "4755.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 1660699279360,
+  "pbr": 1.8428955,
+  "dividend_yield": null
+ },
+ "4901.T": {
+  "sector": "Industrials",
+  "market_cap": 4329282469888,
+  "pbr": 1.1367214,
+  "dividend_yield": 2.071251035625518
+ },
+ "4902.T": {
+  "sector": "Industrials",
+  "market_cap": 283513192448,
+  "pbr": 0.5284445,
+  "dividend_yield": 3.1375283249084887
+ },
+ "4911.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 1106543902720,
+  "pbr": 1.8234141,
+  "dividend_yield": 2.1668472372697725
+ },
+ "4912.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 476558262272,
+  "pbr": 1.4746774,
+  "dividend_yield": 1.9738751814223514
+ },
+ "5019.T": {
+  "sector": "Energy",
+  "market_cap": 1461257633792,
+  "pbr": 0.7713741,
+  "dividend_yield": 2.9641827912721284
+ },
+ "5020.T": {
+  "sector": "Energy",
+  "market_cap": 3281632624640,
+  "pbr": 0.97465265,
+  "dividend_yield": 2.7846027846027845
+ },
+ "5101.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 1235637501952,
+  "pbr": 1.1838179,
+  "dividend_yield": 2.1958381207710964
+ },
+ "5108.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 4393731096576,
+  "pbr": 1.2060657,
+  "dividend_yield": 3.698435277382646
+ },
+ "5201.T": {
+  "sector": "Industrials",
+  "market_cap": 1462331244544,
+  "pbr": 0.97823304,
+  "dividend_yield": 3.0501089324618738
+ },
+ "5202.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 68448002048,
+  "pbr": 0.45255592,
+  "dividend_yield": null
+ },
+ "5214.T": {
+  "sector": "Technology",
+  "market_cap": 468260257792,
+  "pbr": 0.9515195,
+  "dividend_yield": 2.5177025963808024
+ },
+ "5233.T": {
+  "sector": "Basic Materials",
+  "market_cap": 445416112128,
+  "pbr": 0.67036813,
+  "dividend_yield": 2.935420743639922
+ },
+ "5301.T": {
+  "sector": "Basic Materials",
+  "market_cap": 375450632192,
+  "pbr": 1.1852167,
+  "dividend_yield": 2.2746659084446974
+ },
+ "5332.T": {
+  "sector": "Industrials",
+  "market_cap": 1411679256576,
+  "pbr": 2.6724904,
+  "dividend_yield": 1.397624039133473
+ },
+ "5333.T": {
+  "sector": "Industrials",
+  "market_cap": 2102631464960,
+  "pbr": 2.6559834,
+  "dividend_yield": 1.4184397163120568
+ },
+ "5401.T": {
+  "sector": "Basic Materials",
+  "market_cap": 2865054351360,
+  "pbr": 0.51805097,
+  "dividend_yield": 4.377964246625319
+ },
+ "5406.T": {
+  "sector": "Basic Materials",
+  "market_cap": 753535746048,
+  "pbr": 0.5974165,
+  "dividend_yield": 4.198373130411966
+ },
+ "5411.T": {
+  "sector": "Basic Materials",
+  "market_cap": 1017818120192,
+  "pbr": 0.38854918,
+  "dividend_yield": 5.0
+ },
+ "5541.T": {
+  "sector": "Basic Materials",
+  "market_cap": 40217681920,
+  "pbr": 0.6390048,
+  "dividend_yield": 5.620406398616516
+ },
+ "5631.T": {
+  "sector": "Industrials",
+  "market_cap": 585573728256,
+  "pbr": 2.7565365,
+  "dividend_yield": 1.156505342551854
+ },
+ "5703.T": {
+  "sector": "Basic Materials",
+  "market_cap": 170237952000,
+  "pbr": 0.68454987,
+  "dividend_yield": 3.61794500723589
+ },
+ "5706.T": {
+  "sector": "Industrials",
+  "market_cap": 2216404713472,
+  "pbr": 5.3790092,
+  "dividend_yield": 0.7227671657201858
+ },
+ "5711.T": {
+  "sector": "Basic Materials",
+  "market_cap": 595235766272,
+  "pbr": 0.80862224,
+  "dividend_yield": 2.5466520307354554
+ },
+ "5713.T": {
+  "sector": "Basic Materials",
+  "market_cap": 2130463424512,
+  "pbr": 1.0340385,
+  "dividend_yield": 2.622950819672131
+ },
+ "5714.T": {
+  "sector": "Basic Materials",
+  "market_cap": 522516037632,
+  "pbr": 1.1469694,
+  "dividend_yield": 3.8261263300882953
+ },
+ "5801.T": {
+  "sector": "Industrials",
+  "market_cap": 2813992108032,
+  "pbr": 6.747411,
+  "dividend_yield": 0.5499999999999999
+ },
+ "5802.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 8310826205184,
+  "pbr": 3.029352,
+  "dividend_yield": 1.4639639639639639
+ },
+ "5803.T": {
+  "sector": "Industrials",
+  "market_cap": 8871022166016,
+  "pbr": 15.830761,
+  "dividend_yield": 0.7092198581560284
+ },
+ "6098.T": {
+  "sector": "Communication Services",
+  "market_cap": 16594297159680,
+  "pbr": 10.511362,
+  "dividend_yield": 0.2181208053691275
+ },
+ "6103.T": {
+  "sector": "Industrials",
+  "market_cap": 291101999104,
+  "pbr": 1.1962721,
+  "dividend_yield": 2.0222446916076846
+ },
+ "6113.T": {
+  "sector": "Industrials",
+  "market_cap": 954887700480,
+  "pbr": 1.7832817,
+  "dividend_yield": 2.08130081300813
+ },
+ "6136.T": {
+  "sector": "Industrials",
+  "market_cap": 336891707392,
+  "pbr": 1.8474395,
+  "dividend_yield": 2.04828090709583
+ },
+ "6141.T": {
+  "sector": "Industrials",
+  "market_cap": 529125670912,
+  "pbr": 1.5588063,
+  "dividend_yield": 2.8000000000000003
+ },
+ "6178.T": {
+  "sector": "Financial Services",
+  "market_cap": 6374549356544,
+  "pbr": 0.6561892,
+  "dividend_yield": 2.6414263702399294
+ },
+ "6301.T": {
+  "sector": "Industrials",
+  "market_cap": 5923248537600,
+  "pbr": 1.7009317,
+  "dividend_yield": 2.8670590010562846
+ },
+ "6302.T": {
+  "sector": "Industrials",
+  "market_cap": 637114646528,
+  "pbr": 0.9347611,
+  "dividend_yield": 2.707244212098581
+ },
+ "6305.T": {
+  "sector": "Industrials",
+  "market_cap": 1138563481600,
+  "pbr": 1.2648374,
+  "dividend_yield": 3.5500747384155455
+ },
+ "6326.T": {
+  "sector": "Industrials",
+  "market_cap": 3095786422272,
+  "pbr": 1.161718,
+  "dividend_yield": 1.8940083773447458
+ },
+ "6361.T": {
+  "sector": "Industrials",
+  "market_cap": 2769661198336,
+  "pbr": 2.206686,
+  "dividend_yield": 1.0885700148441364
+ },
+ "6367.T": {
+  "sector": "Industrials",
+  "market_cap": 7151846686720,
+  "pbr": 2.311942,
+  "dividend_yield": 1.4010507880910683
+ },
+ "6471.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 579356065792,
+  "pbr": 0.8621688,
+  "dividend_yield": 2.871621621621622
+ },
+ "6472.T": {
+  "sector": "Industrials",
+  "market_cap": 243034177536,
+  "pbr": 0.8185855,
+  "dividend_yield": 3.1800391389432483
+ },
+ "6473.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 678365167616,
+  "pbr": 0.85846627,
+  "dividend_yield": 3.28484279680901
+ },
+ "6479.T": {
+  "sector": "Technology",
+  "market_cap": 1946935099392,
+  "pbr": 2.165737,
+  "dividend_yield": 1.2376237623762376
+ },
+ "6501.T": {
+  "sector": "Industrials",
+  "market_cap": 20752705257472,
+  "pbr": 3.1893682,
+  "dividend_yield": 1.191765980498375
+ },
+ "6503.T": {
+  "sector": "Industrials",
+  "market_cap": 12164014276608,
+  "pbr": 2.712598,
+  "dividend_yield": 1.0094212651413188
+ },
+ "6504.T": {
+  "sector": "Industrials",
+  "market_cap": 1976730648576,
+  "pbr": 2.4941869,
+  "dividend_yield": 1.5805022156573116
+ },
+ "6506.T": {
+  "sector": "Industrials",
+  "market_cap": 1939812909056,
+  "pbr": 4.011674,
+  "dividend_yield": 0.9626955475330927
+ },
+ "6594.T": {
+  "sector": "Industrials",
+  "market_cap": 3194765705216,
+  "pbr": 1.8157854,
+  "dividend_yield": 1.4352350197344816
+ },
+ "6645.T": {
+  "sector": "Technology",
+  "market_cap": 1190787547136,
+  "pbr": 1.4245832,
+  "dividend_yield": 1.7173051519154559
+ },
+ "6674.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 675851403264,
+  "pbr": 1.7124798,
+  "dividend_yield": 1.4546534065607837
+ },
+ "6701.T": {
+  "sector": "Technology",
+  "market_cap": 5528202248192,
+  "pbr": 2.5167334,
+  "dividend_yield": 0.9596928982725527
+ },
+ "6702.T": {
+  "sector": "Technology",
+  "market_cap": 5769870704640,
+  "pbr": 2.8494399,
+  "dividend_yield": 1.6536380036079374
+ },
+ "6723.T": {
+  "sector": "Technology",
+  "market_cap": 8744901017600,
+  "pbr": 3.4418344,
+  "dividend_yield": 0.5809128630705395
+ },
+ "6724.T": {
+  "sector": "Technology",
+  "market_cap": 899440705536,
+  "pbr": 1.0538226,
+  "dividend_yield": 2.8500178126113287
+ },
+ "6752.T": {
+  "sector": "Technology",
+  "market_cap": 10558171512832,
+  "pbr": 2.025902,
+  "dividend_yield": 1.1941618752764263
+ },
+ "6753.T": {
+  "sector": "Technology",
+  "market_cap": 414971887616,
+  "pbr": 1.4723194,
+  "dividend_yield": null
+ },
+ "6758.T": {
+  "sector": "Technology",
+  "market_cap": 19907750133760,
+  "pbr": 2.4594016,
+  "dividend_yield": 1.0355029585798818
+ },
+ "6762.T": {
+  "sector": "Technology",
+  "market_cap": 7021272236032,
+  "pbr": 3.2101154,
+  "dividend_yield": 1.0813733441470668
+ },
+ "6770.T": {
+  "sector": "Technology",
+  "market_cap": 414813650944,
+  "pbr": 0.9268895,
+  "dividend_yield": 3.0103480714957667
+ },
+ "6841.T": {
+  "sector": "Industrials",
+  "market_cap": 1467373322240,
+  "pbr": 2.8458738,
+  "dividend_yield": 1.5829318651066757
+ },
+ "6857.T": {
+  "sector": "Technology",
+  "market_cap": 21269657419776,
+  "pbr": 26.755766,
+  "dividend_yield": 0.20446413358323395
+ },
+ "6861.T": {
+  "sector": "Technology",
+  "market_cap": 19474767937536,
+  "pbr": 5.6099467,
+  "dividend_yield": 0.684931506849315
+ },
+ "6902.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 5264290349056,
+  "pbr": 0.9583811,
+  "dividend_yield": 3.784198414727691
+ },
+ "6952.T": {
+  "sector": "Technology",
+  "market_cap": 416930004992,
+  "pbr": 1.7836244,
+  "dividend_yield": 2.4122219244170466
+ },
+ "6954.T": {
+  "sector": "Industrials",
+  "market_cap": 6941765533696,
+  "pbr": 3.722385,
+  "dividend_yield": 1.4395752117220055
+ },
+ "6971.T": {
+  "sector": "Industrials",
+  "market_cap": 5158961414144,
+  "pbr": 1.5448627,
+  "dividend_yield": 1.4300306435137897
+ },
+ "6976.T": {
+  "sector": "Technology",
+  "market_cap": 2573020430336,
+  "pbr": 7.4650116,
+  "dividend_yield": 0.4377431906614786
+ },
+ "6981.T": {
+  "sector": "Technology",
+  "market_cap": 20168820391936,
+  "pbr": 7.4184427,
+  "dividend_yield": 0.631768953068592
+ },
+ "6988.T": {
+  "sector": "Basic Materials",
+  "market_cap": 2151715569664,
+  "pbr": 1.8906631,
+  "dividend_yield": 1.9863438857852265
+ },
+ "7003.T": {
+  "sector": "Industrials",
+  "market_cap": 445082009600,
+  "pbr": 1.9427234,
+  "dividend_yield": 1.3602357742008615
+ },
+ "7011.T": {
+  "sector": "Industrials",
+  "market_cap": 12741913870336,
+  "pbr": 4.12551,
+  "dividend_yield": 0.7911392405063291
+ },
+ "7012.T": {
+  "sector": "Industrials",
+  "market_cap": 2357091631104,
+  "pbr": 2.684247,
+  "dividend_yield": 1.4184397163120568
+ },
+ "7013.T": {
+  "sector": "Industrials",
+  "market_cap": 3042134720512,
+  "pbr": 4.6641097,
+  "dividend_yield": 0.8015333681826102
+ },
+ "7186.T": {
+  "sector": "Financial Services",
+  "market_cap": 2054010437632,
+  "pbr": 1.4631203,
+  "dividend_yield": 2.5974025974025974
+ },
+ "7201.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 1094717341696,
+  "pbr": 0.22811456,
+  "dividend_yield": null
+ },
+ "7202.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 1590266691584,
+  "pbr": 1.0748613,
+  "dividend_yield": 4.062229904926534
+ },
+ "7203.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 33486496858112,
+  "pbr": 0.92333335,
+  "dividend_yield": 3.536067892503536
+ },
+ "7211.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 446742102016,
+  "pbr": 0.48587,
+  "dividend_yield": 2.995805871779509
+ },
+ "7261.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 719089106944,
+  "pbr": 0.37729654,
+  "dividend_yield": 4.824561403508771
+ },
+ "7267.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 6033499488256,
+  "pbr": 0.5105558,
+  "dividend_yield": 4.516129032258064
+ },
+ "7269.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 4070767853568,
+  "pbr": 1.2036275,
+  "dividend_yield": 2.4644549763033177
+ },
+ "7270.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 1799659323392,
+  "pbr": 0.6472649,
+  "dividend_yield": 4.611409262572053
+ },
+ "7272.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 1212002205696,
+  "pbr": 1.0422517,
+  "dividend_yield": 4.00320256204964
+ },
+ "7731.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 748105498624,
+  "pbr": 1.2748929,
+  "dividend_yield": 0.8806693086745927
+ },
+ "7733.T": {
+  "sector": "Healthcare",
+  "market_cap": 1877895675904,
+  "pbr": 2.3973563,
+  "dividend_yield": 1.6968325791855203
+ },
+ "7735.T": {
+  "sector": "Technology",
+  "market_cap": 3581323509760,
+  "pbr": 7.3603907,
+  "dividend_yield": 1.214361140443506
+ },
+ "7741.T": {
+  "sector": "Healthcare",
+  "market_cap": 8673960656896,
+  "pbr": 8.524807,
+  "dividend_yield": 1.1376783648283841
+ },
+ "7751.T": {
+  "sector": "Technology",
+  "market_cap": 3639179476992,
+  "pbr": 1.0777991,
+  "dividend_yield": 3.755868544600939
+ },
+ "7752.T": {
+  "sector": "Industrials",
+  "market_cap": 818129534976,
+  "pbr": 0.7097293,
+  "dividend_yield": 3.0523759972251128
+ },
+ "7762.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 586805280768,
+  "pbr": 2.0014913,
+  "dividend_yield": 2.079002079002079
+ },
+ "7832.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 2511589081088,
+  "pbr": 2.9178066,
+  "dividend_yield": 1.2257405515832482
+ },
+ "7911.T": {
+  "sector": "Industrials",
+  "market_cap": 1496278892544,
+  "pbr": 1.1202182,
+  "dividend_yield": 1.0916619612271785
+ },
+ "7912.T": {
+  "sector": "Industrials",
+  "market_cap": 1312329564160,
+  "pbr": 1.1060292,
+  "dividend_yield": 1.343381389252949
+ },
+ "7951.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 511820103680,
+  "pbr": 1.0699766,
+  "dividend_yield": 2.2346368715083798
+ },
+ "7974.T": {
+  "sector": "Communication Services",
+  "market_cap": 8221974069248,
+  "pbr": 2.7833128,
+  "dividend_yield": 3.070667414469994
+ },
+ "8001.T": {
+  "sector": "Industrials",
+  "market_cap": 13200449863680,
+  "pbr": 2.0031142,
+  "dividend_yield": 2.3298914482393434
+ },
+ "8002.T": {
+  "sector": "Industrials",
+  "market_cap": 8114521243648,
+  "pbr": 1.8634973,
+  "dividend_yield": 2.3171468869635303
+ },
+ "8015.T": {
+  "sector": "Industrials",
+  "market_cap": 6562704261120,
+  "pbr": 2.0784369,
+  "dividend_yield": 2.010939510939511
+ },
+ "8031.T": {
+  "sector": "Industrials",
+  "market_cap": 13037266272256,
+  "pbr": 1.4869581,
+  "dividend_yield": 3.0434782608695654
+ },
+ "8035.T": {
+  "sector": "Technology",
+  "market_cap": 33295387590656,
+  "pbr": 16.084585,
+  "dividend_yield": 0.9863387978142077
+ },
+ "8053.T": {
+  "sector": "Industrials",
+  "market_cap": 7497015885824,
+  "pbr": 1.6233499,
+  "dividend_yield": 2.5396825396825395
+ },
+ "8058.T": {
+  "sector": "Industrials",
+  "market_cap": 16319299715072,
+  "pbr": 1.7286357,
+  "dividend_yield": 2.8045770697778774
+ },
+ "8113.T": {
+  "sector": "Consumer Defensive",
+  "market_cap": 1651624116224,
+  "pbr": 2.1079264,
+  "dividend_yield": 2.2921441967076475
+ },
+ "8233.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 684481642496,
+  "pbr": 1.5060775,
+  "dividend_yield": 1.7123287671232876
+ },
+ "8252.T": {
+  "sector": "Financial Services",
+  "market_cap": 523978670080,
+  "pbr": 2.1574545,
+  "dividend_yield": 4.570259208731241
+ },
+ "8253.T": {
+  "sector": "Financial Services",
+  "market_cap": 659522519040,
+  "pbr": 0.86590487,
+  "dividend_yield": 3.484320557491289
+ },
+ "8267.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 3894024339456,
+  "pbr": 3.1913712,
+  "dividend_yield": 0.9946714031971581
+ },
+ "8303.T": {
+  "sector": "Financial Services",
+  "market_cap": 1283932553216,
+  "pbr": 1.0479987,
+  "dividend_yield": 2.901554404145078
+ },
+ "8304.T": {
+  "sector": "Financial Services",
+  "market_cap": 391618428928,
+  "pbr": 0.81597203,
+  "dividend_yield": 3.53356890459364
+ },
+ "8306.T": {
+  "sector": "Financial Services",
+  "market_cap": 37506879848448,
+  "pbr": 1.6854861,
+  "dividend_yield": 2.8863499699338546
+ },
+ "8308.T": {
+  "sector": "Financial Services",
+  "market_cap": 5036297420800,
+  "pbr": 1.7412511,
+  "dividend_yield": 1.6477399242930304
+ },
+ "8309.T": {
+  "sector": "Financial Services",
+  "market_cap": 4387039870976,
+  "pbr": 1.2391448,
+  "dividend_yield": 0.7508694277584571
+ },
+ "8316.T": {
+  "sector": "Financial Services",
+  "market_cap": 25433670156288,
+  "pbr": 1.6132046,
+  "dividend_yield": 1.3489208633093526
+ },
+ "8331.T": {
+  "sector": "Financial Services",
+  "market_cap": 1845999042560,
+  "pbr": 1.4791659,
+  "dividend_yield": 2.401500938086304
+ },
+ "8354.T": {
+  "sector": "Financial Services",
+  "market_cap": 1364499365888,
+  "pbr": 1.2677763,
+  "dividend_yield": 2.9081844619858748
+ },
+ "8411.T": {
+  "sector": "Financial Services",
+  "market_cap": 19681551319040,
+  "pbr": 1.7406747,
+  "dividend_yield": 1.8568952711067097
+ },
+ "8591.T": {
+  "sector": "Financial Services",
+  "market_cap": 6914925133824,
+  "pbr": 1.5516237,
+  "dividend_yield": 2.4656452377191598
+ },
+ "8601.T": {
+  "sector": "Financial Services",
+  "market_cap": 2335035097088,
+  "pbr": 1.3187778,
+  "dividend_yield": 4.156769596199525
+ },
+ "8604.T": {
+  "sector": "Financial Services",
+  "market_cap": 4301151535104,
+  "pbr": 1.1514211,
+  "dividend_yield": 3.4658511722731906
+ },
+ "8630.T": {
+  "sector": "Financial Services",
+  "market_cap": 5909428830208,
+  "pbr": 1.1455563,
+  "dividend_yield": 3.014318010550113
+ },
+ "8697.T": {
+  "sector": "Financial Services",
+  "market_cap": 2239854804992,
+  "pbr": 6.492056,
+  "dividend_yield": 2.799449288664525
+ },
+ "8725.T": {
+  "sector": "Financial Services",
+  "market_cap": 6458531381248,
+  "pbr": 1.3550416,
+  "dividend_yield": 3.1432420296362817
+ },
+ "8750.T": {
+  "sector": "Financial Services",
+  "market_cap": 6636552847360,
+  "pbr": 1.5599964,
+  "dividend_yield": 3.906673901247965
+ },
+ "8766.T": {
+  "sector": "Financial Services",
+  "market_cap": 14498278670336,
+  "pbr": 1.7907792,
+  "dividend_yield": 3.230485232067511
+ },
+ "8795.T": {
+  "sector": "Financial Services",
+  "market_cap": 2377255223296,
+  "pbr": 1.4746106,
+  "dividend_yield": 3.310456197012515
+ },
+ "8801.T": {
+  "sector": "Real Estate",
+  "market_cap": 4144580001792,
+  "pbr": 1.2766596,
+  "dividend_yield": 2.4025974025974026
+ },
+ "8802.T": {
+  "sector": "Real Estate",
+  "market_cap": 5079332028416,
+  "pbr": 1.8907924,
+  "dividend_yield": 1.1862396204033214
+ },
+ "8804.T": {
+  "sector": "Real Estate",
+  "market_cap": 688049946624,
+  "pbr": 1.1637486,
+  "dividend_yield": 3.6813518406759207
+ },
+ "8830.T": {
+  "sector": "Real Estate",
+  "market_cap": 3553151942656,
+  "pbr": 1.4381093,
+  "dividend_yield": 1.351702625422407
+ },
+ "9001.T": {
+  "sector": "Industrials",
+  "market_cap": 567431987200,
+  "pbr": 0.9217483,
+  "dividend_yield": 2.584424534803584
+ },
+ "9005.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 947431014400,
+  "pbr": 1.042665,
+  "dividend_yield": 1.9161676646706587
+ },
+ "9007.T": {
+  "sector": "Industrials",
+  "market_cap": 580802052096,
+  "pbr": 1.140881,
+  "dividend_yield": 3.5767511177347244
+ },
+ "9008.T": {
+  "sector": "Industrials",
+  "market_cap": 435522076672,
+  "pbr": 0.97584903,
+  "dividend_yield": 2.9403902699812883
+ },
+ "9009.T": {
+  "sector": "Industrials",
+  "market_cap": 572417966080,
+  "pbr": 1.0261588,
+  "dividend_yield": 1.8534119629317607
+ },
+ "9020.T": {
+  "sector": "Industrials",
+  "market_cap": 3905448050688,
+  "pbr": 1.2816898,
+  "dividend_yield": 2.4284475281873377
+ },
+ "9021.T": {
+  "sector": "Industrials",
+  "market_cap": 1272641880064,
+  "pbr": 1.0537688,
+  "dividend_yield": 3.486500983372072
+ },
+ "9022.T": {
+  "sector": "Industrials",
+  "market_cap": 3349763063808,
+  "pbr": 0.66226697,
+  "dividend_yield": 0.910643141718839
+ },
+ "9064.T": {
+  "sector": "Industrials",
+  "market_cap": 616094302208,
+  "pbr": 1.0789135,
+  "dividend_yield": 2.3644307375995886
+ },
+ "9101.T": {
+  "sector": "Industrials",
+  "market_cap": 2102930964480,
+  "pbr": 0.68783236,
+  "dividend_yield": 3.8380349261178273
+ },
+ "9104.T": {
+  "sector": "Industrials",
+  "market_cap": 1784397824000,
+  "pbr": 0.6207846,
+  "dividend_yield": 3.9476217985750046
+ },
+ "9107.T": {
+  "sector": "Industrials",
+  "market_cap": 1608122630144,
+  "pbr": 0.89184564,
+  "dividend_yield": 4.717908393945351
+ },
+ "9147.T": {
+  "sector": "Industrials",
+  "market_cap": 1309776412672,
+  "pbr": 1.5930561,
+  "dividend_yield": 1.842978252856616
+ },
+ "9201.T": {
+  "sector": "Industrials",
+  "market_cap": 1310974541824,
+  "pbr": 1.0165436,
+  "dividend_yield": 3.1475409836065573
+ },
+ "9202.T": {
+  "sector": "Industrials",
+  "market_cap": 1384173142016,
+  "pbr": 0.954996,
+  "dividend_yield": 1.910828025477707
+ },
+ "9301.T": {
+  "sector": "Industrials",
+  "market_cap": 540676227072,
+  "pbr": 1.4340453,
+  "dividend_yield": 2.781289506953224
+ },
+ "9432.T": {
+  "sector": "Communication Services",
+  "market_cap": 11895991959552,
+  "pbr": 1.2233825,
+  "dividend_yield": 3.6960985626283374
+ },
+ "9433.T": {
+  "sector": "Communication Services",
+  "market_cap": 10288629809152,
+  "pbr": 2.0266216,
+  "dividend_yield": 3.1082331174838114
+ },
+ "9434.T": {
+  "sector": "Communication Services",
+  "market_cap": 10001032675328,
+  "pbr": 3.3792303,
+  "dividend_yield": 4.208512673362028
+ },
+ "9501.T": {
+  "sector": "Utilities",
+  "market_cap": 745256452096,
+  "pbr": 0.21986282,
+  "dividend_yield": null
+ },
+ "9502.T": {
+  "sector": "Utilities",
+  "market_cap": 2397619093504,
+  "pbr": 0.7639973,
+  "dividend_yield": 2.2054190296156273
+ },
+ "9503.T": {
+  "sector": "Utilities",
+  "market_cap": 2535036026880,
+  "pbr": 0.7336926,
+  "dividend_yield": 3.5157108327840034
+ },
+ "9531.T": {
+  "sector": "Utilities",
+  "market_cap": 2004191019008,
+  "pbr": 1.1709309,
+  "dividend_yield": 1.9877422560874607
+ },
+ "9532.T": {
+  "sector": "Utilities",
+  "market_cap": 2044937764864,
+  "pbr": 1.1398526,
+  "dividend_yield": 2.424016408726459
+ },
+ "9602.T": {
+  "sector": "Communication Services",
+  "market_cap": 1083902197760,
+  "pbr": 2.1221292,
+  "dividend_yield": 1.688411358403684
+ },
+ "9735.T": {
+  "sector": "Industrials",
+  "market_cap": 2649984335872,
+  "pbr": 2.022372,
+  "dividend_yield": 1.8256503879507076
+ },
+ "9766.T": {
+  "sector": "Communication Services",
+  "market_cap": 2475939069952,
+  "pbr": 4.385787,
+  "dividend_yield": 1.2263892690938953
+ },
+ "9843.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 1321951297536,
+  "pbr": 1.3372507,
+  "dividend_yield": 1.3678136353921777
+ },
+ "9983.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 25927958396928,
+  "pbr": 9.849327,
+  "dividend_yield": 0.757396449704142
+ },
+ "9984.T": {
+  "sector": "Communication Services",
+  "market_cap": 35156658225152,
+  "pbr": 1.9950635,
+  "dividend_yield": 0.17831090938563784
+ },
+ "3003.T": {
+  "sector": "Real Estate",
+  "market_cap": 1317040160768,
+  "pbr": 1.4488807,
+  "dividend_yield": 3.8627846641683483
+ },
+ "3048.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 279826956288,
+  "pbr": 1.5773693,
+  "dividend_yield": 2.631578947368421
+ },
+ "3221.T": {
+  "sector": "Consumer Cyclical",
+  "market_cap": 32101781504,
+  "pbr": 2.416574,
+  "dividend_yield": 1.0223642172523961
+ },
+ "3231.T": {
+  "sector": "Real Estate",
+  "market_cap": 806544408576,
+  "pbr": 1.0065175,
+  "dividend_yield": 4.660029654734166
+ },
+ "3741.T": {
+  "sector": "Technology",
+  "market_cap": 32977047552,
+  "pbr": 3.1979122,
+  "dividend_yield": 1.9195046439628483
+ },
+ "5805.T": {
+  "sector": "Industrials",
+  "market_cap": 371979255808,
+  "pbr": 3.7805078,
+  "dividend_yield": 2.229299363057325
+ },
+ "8425.T": {
+  "sector": "Financial Services",
+  "market_cap": 353595752448,
+  "pbr": 0.82600975,
+  "dividend_yield": 4.120443740095087
+ },
+ "8473.T": {
+  "sector": "Financial Services",
+  "market_cap": 1742348746752,
+  "pbr": 0.97065526,
+  "dividend_yield": 3.524392506028566
+ },
+ "8593.T": {
+  "sector": "Financial Services",
+  "market_cap": 1939930349568,
+  "pbr": 0.97468626,
+  "dividend_yield": 3.84900074019245
+ }
+}

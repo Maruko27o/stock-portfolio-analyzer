@@ -6,7 +6,12 @@ from dataclasses import dataclass
 from datetime import date
 
 from stock_analyzer.analysis import HoldingAnalysis, analyze_holding
-from stock_analyzer.backtest_stats import load_stats, stats_for_score
+from stock_analyzer.backtest_stats import (
+    load_stats,
+    load_strategy_stats,
+    stats_for_score,
+    stats_for_strategy,
+)
 from stock_analyzer.data_fetcher import (
     fetch_fundamentals,
     fetch_price_history,
@@ -31,7 +36,11 @@ from stock_analyzer.indicators import (
     rate_of_change,
 )
 from stock_analyzer.flex import holding_bubble, market_bubble, swing_bubble, to_flex_messages
-from stock_analyzer.market import evaluate_market_sentiment, fetch_market_snapshot
+from stock_analyzer.market import (
+    current_market_regime,
+    evaluate_market_sentiment,
+    fetch_market_snapshot,
+)
 from stock_analyzer.portfolio import Holding, load_portfolio
 from stock_analyzer.screener import build_swing_section, top_swing_picks
 from stock_analyzer.scoring import evaluate_recommendation, total_score
@@ -186,6 +195,8 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
     vix = snapshot.get("VIX", (None, None))[0] if snapshot else None
     benchmark_momentum, as_of = _benchmark_context()
     backtest = load_stats()  # 保存済み統計の参照のみ(ここでバックテストは走らない)
+    strategy_stats = load_strategy_stats()
+    regime = current_market_regime() if strategy_stats else None
 
     summaries = []
     failed_symbols = []
@@ -193,6 +204,9 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
         try:
             summary = build_summary(_analyze_with_retry(holding), sentiment, vix, benchmark_momentum)
             summary.backtest = stats_for_score(backtest, summary.price_score)
+            summary.strategy_stats = stats_for_strategy(
+                strategy_stats, summary.strategies_active, regime
+            )
             summaries.append(summary)
         except Exception:
             failed_symbols.append(holding.symbol)

@@ -1,0 +1,2086 @@
+{
+ "metadata": {
+  "run_at": "2026-07-05T21:06:14+09:00",
+  "period": "10y",
+  "sample_step": 5,
+  "forward_days": 20,
+  "train_end": "2022-12-31",
+  "symbols_used": 238,
+  "observations": 103599,
+  "excluded_items": [
+   "ニュース/IR/自社株買い/増配イベント: 過去時点の履歴が無料データに存在しないため対象外",
+   "金利・グロース指数: 同上(将来データ源が確保できれば追加可能)",
+   "PER/ROE等のファンダ時系列: 過去時点の値が入手不可のため対象外",
+   "業種・時価総額・PBR・配当分類は現在値による静的分類(限界として明記)"
+  ]
+ },
+ "baseline": {
+  "train": {
+   "count": 63864,
+   "win_rate": 52.82,
+   "avg_win": 6.79,
+   "avg_loss": 6.31,
+   "risk_reward": 1.08,
+   "profit_factor": 1.21,
+   "expectancy": 0.63
+  },
+  "test": {
+   "count": 39735,
+   "win_rate": 59.25,
+   "avg_win": 7.54,
+   "avg_loss": 5.63,
+   "risk_reward": 1.34,
+   "profit_factor": 1.96,
+   "expectancy": 2.18
+  }
+ },
+ "features_single": {
+  "25日線上": {
+   "train": {
+    "count": 33684,
+    "win_rate": 51.42,
+    "avg_win": 6.61,
+    "avg_loss": 6.15,
+    "risk_reward": 1.08,
+    "profit_factor": 1.15,
+    "expectancy": 0.43
+   },
+   "test": {
+    "count": 23578,
+    "win_rate": 57.98,
+    "avg_win": 7.64,
+    "avg_loss": 5.75,
+    "risk_reward": 1.33,
+    "profit_factor": 1.84,
+    "expectancy": 2.03
+   }
+  },
+  "MA上昇配列": {
+   "train": {
+    "count": 21040,
+    "win_rate": 50.02,
+    "avg_win": 6.51,
+    "avg_loss": 6.31,
+    "risk_reward": 1.03,
+    "profit_factor": 1.04,
+    "expectancy": 0.12
+   },
+   "test": {
+    "count": 16863,
+    "win_rate": 59.25,
+    "avg_win": 7.81,
+    "avg_loss": 5.8,
+    "risk_reward": 1.35,
+    "profit_factor": 1.97,
+    "expectancy": 2.27
+   }
+  },
+  "MACD上": {
+   "train": {
+    "count": 32365,
+    "win_rate": 53.17,
+    "avg_win": 6.79,
+    "avg_loss": 6.25,
+    "risk_reward": 1.09,
+    "profit_factor": 1.24,
+    "expectancy": 0.7
+   },
+   "test": {
+    "count": 20956,
+    "win_rate": 56.62,
+    "avg_win": 7.59,
+    "avg_loss": 5.82,
+    "risk_reward": 1.3,
+    "profit_factor": 1.71,
+    "expectancy": 1.78
+   }
+  },
+  "MACD_GC": {
+   "train": {
+    "count": 2597,
+    "win_rate": 52.33,
+    "avg_win": 6.87,
+    "avg_loss": 6.42,
+    "risk_reward": 1.07,
+    "profit_factor": 1.18,
+    "expectancy": 0.55
+   },
+   "test": {
+    "count": 1772,
+    "win_rate": 55.19,
+    "avg_win": 7.62,
+    "avg_loss": 5.56,
+    "risk_reward": 1.37,
+    "profit_factor": 1.69,
+    "expectancy": 1.72
+   }
+  },
+  "MACD_DC": {
+   "train": {
+    "count": 2592,
+    "win_rate": 51.47,
+    "avg_win": 6.69,
+    "avg_loss": 6.63,
+    "risk_reward": 1.01,
+    "profit_factor": 1.08,
+    "expectancy": 0.25
+   },
+   "test": {
+    "count": 1563,
+    "win_rate": 56.17,
+    "avg_win": 7.38,
+    "avg_loss": 5.75,
+    "risk_reward": 1.28,
+    "profit_factor": 1.65,
+    "expectancy": 1.63
+   }
+  },
+  "RSI30以下": {
+   "train": {
+    "count": 7366,
+    "win_rate": 56.56,
+    "avg_win": 7.16,
+    "avg_loss": 6.93,
+    "risk_reward": 1.03,
+    "profit_factor": 1.35,
+    "expectancy": 1.06
+   },
+   "test": {
+    "count": 3150,
+    "win_rate": 62.73,
+    "avg_win": 8.09,
+    "avg_loss": 5.25,
+    "risk_reward": 1.54,
+    "profit_factor": 2.61,
+    "expectancy": 3.13
+   }
+  },
+  "RSI70以上": {
+   "train": {
+    "count": 9317,
+    "win_rate": 49.48,
+    "avg_win": 6.24,
+    "avg_loss": 6.31,
+    "risk_reward": 0.99,
+    "profit_factor": 0.98,
+    "expectancy": -0.08
+   },
+   "test": {
+    "count": 6750,
+    "win_rate": 57.38,
+    "avg_win": 8.25,
+    "avg_loss": 5.92,
+    "risk_reward": 1.39,
+    "profit_factor": 1.88,
+    "expectancy": 2.22
+   }
+  },
+  "ボリンジャー-2σ以下": {
+   "train": {
+    "count": 3669,
+    "win_rate": 52.68,
+    "avg_win": 6.92,
+    "avg_loss": 7.46,
+    "risk_reward": 0.93,
+    "profit_factor": 1.04,
+    "expectancy": 0.13
+   },
+   "test": {
+    "count": 1540,
+    "win_rate": 66.88,
+    "avg_win": 8.84,
+    "avg_loss": 5.19,
+    "risk_reward": 1.7,
+    "profit_factor": 3.47,
+    "expectancy": 4.21
+   }
+  },
+  "ボリンジャー+2σ以上": {
+   "train": {
+    "count": 4294,
+    "win_rate": 51.96,
+    "avg_win": 6.26,
+    "avg_loss": 5.87,
+    "risk_reward": 1.07,
+    "profit_factor": 1.16,
+    "expectancy": 0.45
+   },
+   "test": {
+    "count": 3367,
+    "win_rate": 57.41,
+    "avg_win": 8.25,
+    "avg_loss": 5.96,
+    "risk_reward": 1.38,
+    "profit_factor": 1.87,
+    "expectancy": 2.21
+   }
+  },
+  "出来高増×上昇": {
+   "train": {
+    "count": 15812,
+    "win_rate": 51.61,
+    "avg_win": 6.62,
+    "avg_loss": 6.28,
+    "risk_reward": 1.05,
+    "profit_factor": 1.13,
+    "expectancy": 0.39
+   },
+   "test": {
+    "count": 10819,
+    "win_rate": 58.18,
+    "avg_win": 7.83,
+    "avg_loss": 5.81,
+    "risk_reward": 1.35,
+    "profit_factor": 1.89,
+    "expectancy": 2.14
+   }
+  },
+  "出来高2倍以上": {
+   "train": {
+    "count": 2349,
+    "win_rate": 49.21,
+    "avg_win": 6.73,
+    "avg_loss": 6.66,
+    "risk_reward": 1.01,
+    "profit_factor": 0.98,
+    "expectancy": -0.05
+   },
+   "test": {
+    "count": 1588,
+    "win_rate": 61.65,
+    "avg_win": 8.88,
+    "avg_loss": 6.3,
+    "risk_reward": 1.41,
+    "profit_factor": 2.28,
+    "expectancy": 3.07
+   }
+  },
+  "60日高値更新": {
+   "train": {
+    "count": 254,
+    "win_rate": 48.43,
+    "avg_win": 6.43,
+    "avg_loss": 5.58,
+    "risk_reward": 1.15,
+    "profit_factor": 1.1,
+    "expectancy": 0.28
+   },
+   "test": {
+    "count": 312,
+    "win_rate": 56.09,
+    "avg_win": 7.98,
+    "avg_loss": 6.18,
+    "risk_reward": 1.29,
+    "profit_factor": 1.66,
+    "expectancy": 1.78
+   }
+  },
+  "60日安値割れ": {
+   "train": {
+    "count": 203,
+    "win_rate": 56.65,
+    "avg_win": 6.83,
+    "avg_loss": 8.16,
+    "risk_reward": 0.84,
+    "profit_factor": 1.13,
+    "expectancy": 0.46
+   },
+   "test": {
+    "count": 97,
+    "win_rate": 62.89,
+    "avg_win": 7.14,
+    "avg_loss": 5.96,
+    "risk_reward": 1.2,
+    "profit_factor": 2.09,
+    "expectancy": 2.34
+   }
+  },
+  "52週高値更新": {
+   "train": {
+    "count": 128,
+    "win_rate": 42.97,
+    "avg_win": 6.8,
+    "avg_loss": 5.82,
+    "risk_reward": 1.17,
+    "profit_factor": 0.88,
+    "expectancy": -0.4
+   },
+   "test": {
+    "count": 211,
+    "win_rate": 50.24,
+    "avg_win": 8.24,
+    "avg_loss": 6.39,
+    "risk_reward": 1.29,
+    "profit_factor": 1.32,
+    "expectancy": 0.99
+   }
+  },
+  "直近10日+3%以上": {
+   "train": {
+    "count": 18645,
+    "win_rate": 50.86,
+    "avg_win": 6.94,
+    "avg_loss": 6.45,
+    "risk_reward": 1.08,
+    "profit_factor": 1.12,
+    "expectancy": 0.38
+   },
+   "test": {
+    "count": 13184,
+    "win_rate": 56.86,
+    "avg_win": 8.23,
+    "avg_loss": 6.03,
+    "risk_reward": 1.36,
+    "profit_factor": 1.8,
+    "expectancy": 2.09
+   }
+  },
+  "直近10日-3%以下": {
+   "train": {
+    "count": 16519,
+    "win_rate": 54.69,
+    "avg_win": 7.34,
+    "avg_loss": 6.84,
+    "risk_reward": 1.07,
+    "profit_factor": 1.3,
+    "expectancy": 0.94
+   },
+   "test": {
+    "count": 8522,
+    "win_rate": 62.31,
+    "avg_win": 8.06,
+    "avg_loss": 5.95,
+    "risk_reward": 1.36,
+    "profit_factor": 2.25,
+    "expectancy": 2.79
+   }
+  },
+  "市場より強い": {
+   "train": {
+    "count": 8193,
+    "win_rate": 54.08,
+    "avg_win": 7.56,
+    "avg_loss": 6.82,
+    "risk_reward": 1.11,
+    "profit_factor": 1.32,
+    "expectancy": 0.98
+   },
+   "test": {
+    "count": 5382,
+    "win_rate": 57.9,
+    "avg_win": 9.45,
+    "avg_loss": 6.82,
+    "risk_reward": 1.39,
+    "profit_factor": 1.91,
+    "expectancy": 2.61
+   }
+  },
+  "市場より弱い": {
+   "train": {
+    "count": 7808,
+    "win_rate": 53.83,
+    "avg_win": 7.85,
+    "avg_loss": 6.73,
+    "risk_reward": 1.17,
+    "profit_factor": 1.37,
+    "expectancy": 1.14
+   },
+   "test": {
+    "count": 5214,
+    "win_rate": 56.83,
+    "avg_win": 8.06,
+    "avg_loss": 6.06,
+    "risk_reward": 1.33,
+    "profit_factor": 1.76,
+    "expectancy": 1.97
+   }
+  },
+  "高ボラ(ATR比上位)": {
+   "train": {
+    "count": 38124,
+    "win_rate": 54.52,
+    "avg_win": 7.34,
+    "avg_loss": 6.48,
+    "risk_reward": 1.13,
+    "profit_factor": 1.37,
+    "expectancy": 1.08
+   },
+   "test": {
+    "count": 21050,
+    "win_rate": 58.35,
+    "avg_win": 8.38,
+    "avg_loss": 6.06,
+    "risk_reward": 1.38,
+    "profit_factor": 1.94,
+    "expectancy": 2.37
+   }
+  },
+  "配当利回り3%以上": {
+   "train": {
+    "count": 27297,
+    "win_rate": 54.66,
+    "avg_win": 6.39,
+    "avg_loss": 5.99,
+    "risk_reward": 1.07,
+    "profit_factor": 1.3,
+    "expectancy": 0.8
+   },
+   "test": {
+    "count": 16925,
+    "win_rate": 63.67,
+    "avg_win": 6.58,
+    "avg_loss": 4.64,
+    "risk_reward": 1.42,
+    "profit_factor": 2.5,
+    "expectancy": 2.51
+   }
+  }
+ },
+ "correlation_pairs": [
+  {
+   "a": "60日高値更新",
+   "b": "52週高値更新",
+   "corr": 0.709
+  },
+  {
+   "a": "25日線上",
+   "b": "直近10日-3%以下",
+   "corr": -0.566
+  },
+  {
+   "a": "MACD上",
+   "b": "直近10日+3%以上",
+   "corr": 0.561
+  },
+  {
+   "a": "25日線上",
+   "b": "直近10日+3%以上",
+   "corr": 0.533
+  },
+  {
+   "a": "25日線上",
+   "b": "MACD上",
+   "corr": 0.531
+  },
+  {
+   "a": "直近10日-3%以下",
+   "b": "市場より弱い",
+   "corr": 0.53
+  },
+  {
+   "a": "MACD上",
+   "b": "直近10日-3%以下",
+   "corr": -0.525
+  },
+  {
+   "a": "25日線上",
+   "b": "MA上昇配列",
+   "corr": 0.514
+  },
+  {
+   "a": "RSI70以上",
+   "b": "直近10日+3%以上",
+   "corr": 0.51
+  },
+  {
+   "a": "直近10日+3%以上",
+   "b": "市場より強い",
+   "corr": 0.506
+  }
+ ],
+ "prune_candidates": [
+  {
+   "feature": "25日線上",
+   "reason": "期待値上乗せ-0.20%でベースライン並み、かつ直近10日-3%以下と相関-0.566で情報重複"
+  },
+  {
+   "feature": "MA上昇配列",
+   "reason": "期待値上乗せ-0.51%でベースライン並み、かつ25日線上と相関0.514で情報重複"
+  },
+  {
+   "feature": "MACD_DC",
+   "reason": "期待値がベースライン比-0.38%と悪化要因"
+  },
+  {
+   "feature": "RSI70以上",
+   "reason": "期待値上乗せ-0.71%でベースライン並み、かつ直近10日+3%以上と相関0.51で情報重複"
+  },
+  {
+   "feature": "ボリンジャー-2σ以下",
+   "reason": "期待値がベースライン比-0.50%と悪化要因"
+  },
+  {
+   "feature": "出来高2倍以上",
+   "reason": "期待値がベースライン比-0.68%と悪化要因"
+  },
+  {
+   "feature": "60日高値更新",
+   "reason": "期待値上乗せ-0.35%でベースライン並み、かつ52週高値更新と相関0.709で情報重複"
+  },
+  {
+   "feature": "52週高値更新",
+   "reason": "学習期間の件数不足(128件)"
+  },
+  {
+   "feature": "直近10日+3%以上",
+   "reason": "期待値上乗せ-0.25%でベースライン並み、かつMACD上と相関0.561で情報重複"
+  }
+ ],
+ "combos": {
+  "市場より弱い + 高ボラ(ATR比上位)": {
+   "train": {
+    "count": 6432,
+    "win_rate": 55.29,
+    "avg_win": 8.05,
+    "avg_loss": 6.82,
+    "risk_reward": 1.18,
+    "profit_factor": 1.48,
+    "expectancy": 1.44
+   },
+   "test": {
+    "count": 3890,
+    "win_rate": 56.74,
+    "avg_win": 8.52,
+    "avg_loss": 6.37,
+    "risk_reward": 1.34,
+    "profit_factor": 1.76,
+    "expectancy": 2.09
+   }
+  },
+  "市場より弱い + RSI30以下": {
+   "train": {
+    "count": 3264,
+    "win_rate": 55.79,
+    "avg_win": 7.78,
+    "avg_loss": 7.05,
+    "risk_reward": 1.1,
+    "profit_factor": 1.4,
+    "expectancy": 1.24
+   },
+   "test": {
+    "count": 1687,
+    "win_rate": 59.57,
+    "avg_win": 8.28,
+    "avg_loss": 5.66,
+    "risk_reward": 1.46,
+    "profit_factor": 2.17,
+    "expectancy": 2.66
+   }
+  },
+  "市場より弱い + 直近10日-3%以下": {
+   "train": {
+    "count": 6877,
+    "win_rate": 54.3,
+    "avg_win": 7.86,
+    "avg_loss": 6.87,
+    "risk_reward": 1.14,
+    "profit_factor": 1.37,
+    "expectancy": 1.16
+   },
+   "test": {
+    "count": 4271,
+    "win_rate": 57.01,
+    "avg_win": 8.24,
+    "avg_loss": 6.25,
+    "risk_reward": 1.32,
+    "profit_factor": 1.76,
+    "expectancy": 2.02
+   }
+  },
+  "市場より弱い + 配当利回り3%以上": {
+   "train": {
+    "count": 3121,
+    "win_rate": 56.04,
+    "avg_win": 7.92,
+    "avg_loss": 6.6,
+    "risk_reward": 1.2,
+    "profit_factor": 1.54,
+    "expectancy": 1.56
+   },
+   "test": {
+    "count": 1746,
+    "win_rate": 64.66,
+    "avg_win": 7.28,
+    "avg_loss": 4.6,
+    "risk_reward": 1.58,
+    "profit_factor": 2.91,
+    "expectancy": 3.09
+   }
+  },
+  "高ボラ(ATR比上位) + RSI30以下": {
+   "train": {
+    "count": 5375,
+    "win_rate": 57.54,
+    "avg_win": 7.62,
+    "avg_loss": 7.37,
+    "risk_reward": 1.03,
+    "profit_factor": 1.41,
+    "expectancy": 1.28
+   },
+   "test": {
+    "count": 1984,
+    "win_rate": 64.21,
+    "avg_win": 8.7,
+    "avg_loss": 5.84,
+    "risk_reward": 1.49,
+    "profit_factor": 2.7,
+    "expectancy": 3.52
+   }
+  },
+  "高ボラ(ATR比上位) + 市場より強い": {
+   "train": {
+    "count": 5879,
+    "win_rate": 55.67,
+    "avg_win": 7.96,
+    "avg_loss": 6.79,
+    "risk_reward": 1.17,
+    "profit_factor": 1.48,
+    "expectancy": 1.43
+   },
+   "test": {
+    "count": 3949,
+    "win_rate": 58.04,
+    "avg_win": 10.19,
+    "avg_loss": 7.08,
+    "risk_reward": 1.44,
+    "profit_factor": 1.99,
+    "expectancy": 2.95
+   }
+  },
+  "高ボラ(ATR比上位) + 直近10日-3%以下": {
+   "train": {
+    "count": 12737,
+    "win_rate": 55.76,
+    "avg_win": 7.64,
+    "avg_loss": 6.96,
+    "risk_reward": 1.1,
+    "profit_factor": 1.39,
+    "expectancy": 1.2
+   },
+   "test": {
+    "count": 6045,
+    "win_rate": 62.37,
+    "avg_win": 8.61,
+    "avg_loss": 6.24,
+    "risk_reward": 1.38,
+    "profit_factor": 2.3,
+    "expectancy": 3.03
+   }
+  },
+  "高ボラ(ATR比上位) + 配当利回り3%以上": {
+   "train": {
+    "count": 15564,
+    "win_rate": 57.0,
+    "avg_win": 7.18,
+    "avg_loss": 6.24,
+    "risk_reward": 1.15,
+    "profit_factor": 1.54,
+    "expectancy": 1.43
+   },
+   "test": {
+    "count": 7095,
+    "win_rate": 62.33,
+    "avg_win": 7.12,
+    "avg_loss": 4.8,
+    "risk_reward": 1.48,
+    "profit_factor": 2.46,
+    "expectancy": 2.63
+   }
+  },
+  "RSI30以下 + 直近10日-3%以下": {
+   "train": {
+    "count": 6351,
+    "win_rate": 56.31,
+    "avg_win": 7.36,
+    "avg_loss": 7.15,
+    "risk_reward": 1.03,
+    "profit_factor": 1.34,
+    "expectancy": 1.04
+   },
+   "test": {
+    "count": 2549,
+    "win_rate": 63.16,
+    "avg_win": 8.39,
+    "avg_loss": 5.51,
+    "risk_reward": 1.52,
+    "profit_factor": 2.63,
+    "expectancy": 3.28
+   }
+  },
+  "RSI30以下 + 配当利回り3%以上": {
+   "train": {
+    "count": 3448,
+    "win_rate": 59.34,
+    "avg_win": 6.98,
+    "avg_loss": 7.52,
+    "risk_reward": 0.93,
+    "profit_factor": 1.36,
+    "expectancy": 1.11
+   },
+   "test": {
+    "count": 1273,
+    "win_rate": 72.74,
+    "avg_win": 7.98,
+    "avg_loss": 3.95,
+    "risk_reward": 2.02,
+    "profit_factor": 5.42,
+    "expectancy": 4.73
+   }
+  },
+  "市場より強い + 配当利回り3%以上": {
+   "train": {
+    "count": 2681,
+    "win_rate": 57.44,
+    "avg_win": 7.14,
+    "avg_loss": 6.08,
+    "risk_reward": 1.17,
+    "profit_factor": 1.6,
+    "expectancy": 1.53
+   },
+   "test": {
+    "count": 1524,
+    "win_rate": 59.25,
+    "avg_win": 7.27,
+    "avg_loss": 5.2,
+    "risk_reward": 1.4,
+    "profit_factor": 2.04,
+    "expectancy": 2.2
+   }
+  },
+  "直近10日-3%以下 + 配当利回り3%以上": {
+   "train": {
+    "count": 7265,
+    "win_rate": 56.34,
+    "avg_win": 7.06,
+    "avg_loss": 6.92,
+    "risk_reward": 1.02,
+    "profit_factor": 1.33,
+    "expectancy": 0.98
+   },
+   "test": {
+    "count": 3307,
+    "win_rate": 69.49,
+    "avg_win": 7.42,
+    "avg_loss": 4.8,
+    "risk_reward": 1.55,
+    "profit_factor": 3.54,
+    "expectancy": 3.7
+   }
+  },
+  "市場より弱い + 高ボラ(ATR比上位) + RSI30以下": {
+   "train": {
+    "count": 2723,
+    "win_rate": 57.51,
+    "avg_win": 7.95,
+    "avg_loss": 7.3,
+    "risk_reward": 1.09,
+    "profit_factor": 1.49,
+    "expectancy": 1.5
+   },
+   "test": {
+    "count": 1289,
+    "win_rate": 60.43,
+    "avg_win": 8.57,
+    "avg_loss": 6.11,
+    "risk_reward": 1.4,
+    "profit_factor": 2.17,
+    "expectancy": 2.79
+   }
+  },
+  "市場より弱い + 高ボラ(ATR比上位) + 直近10日-3%以下": {
+   "train": {
+    "count": 5776,
+    "win_rate": 55.45,
+    "avg_win": 8.02,
+    "avg_loss": 6.92,
+    "risk_reward": 1.16,
+    "profit_factor": 1.46,
+    "expectancy": 1.4
+   },
+   "test": {
+    "count": 3386,
+    "win_rate": 57.15,
+    "avg_win": 8.61,
+    "avg_loss": 6.55,
+    "risk_reward": 1.31,
+    "profit_factor": 1.76,
+    "expectancy": 2.13
+   }
+  },
+  "市場より弱い + 高ボラ(ATR比上位) + 配当利回り3%以上": {
+   "train": {
+    "count": 2639,
+    "win_rate": 57.07,
+    "avg_win": 8.25,
+    "avg_loss": 6.73,
+    "risk_reward": 1.23,
+    "profit_factor": 1.65,
+    "expectancy": 1.85
+   },
+   "test": {
+    "count": 1194,
+    "win_rate": 63.48,
+    "avg_win": 7.82,
+    "avg_loss": 4.95,
+    "risk_reward": 1.58,
+    "profit_factor": 2.76,
+    "expectancy": 3.17
+   }
+  },
+  "市場より弱い + RSI30以下 + 直近10日-3%以下": {
+   "train": {
+    "count": 3200,
+    "win_rate": 56.06,
+    "avg_win": 7.81,
+    "avg_loss": 7.12,
+    "risk_reward": 1.1,
+    "profit_factor": 1.41,
+    "expectancy": 1.27
+   },
+   "test": {
+    "count": 1626,
+    "win_rate": 59.78,
+    "avg_win": 8.29,
+    "avg_loss": 5.7,
+    "risk_reward": 1.45,
+    "profit_factor": 2.18,
+    "expectancy": 2.68
+   }
+  },
+  "市場より弱い + RSI30以下 + 配当利回り3%以上": {
+   "train": {
+    "count": 1391,
+    "win_rate": 58.45,
+    "avg_win": 8.06,
+    "avg_loss": 7.54,
+    "risk_reward": 1.07,
+    "profit_factor": 1.51,
+    "expectancy": 1.59
+   },
+   "test": {
+    "count": 575,
+    "win_rate": 69.91,
+    "avg_win": 8.47,
+    "avg_loss": 3.99,
+    "risk_reward": 2.12,
+    "profit_factor": 4.96,
+    "expectancy": 4.73
+   }
+  },
+  "市場より弱い + 直近10日-3%以下 + 配当利回り3%以上": {
+   "train": {
+    "count": 2776,
+    "win_rate": 56.41,
+    "avg_win": 7.92,
+    "avg_loss": 6.77,
+    "risk_reward": 1.17,
+    "profit_factor": 1.53,
+    "expectancy": 1.54
+   },
+   "test": {
+    "count": 1368,
+    "win_rate": 65.35,
+    "avg_win": 7.5,
+    "avg_loss": 4.73,
+    "risk_reward": 1.58,
+    "profit_factor": 3.0,
+    "expectancy": 3.27
+   }
+  },
+  "高ボラ(ATR比上位) + RSI30以下 + 直近10日-3%以下": {
+   "train": {
+    "count": 4905,
+    "win_rate": 57.21,
+    "avg_win": 7.77,
+    "avg_loss": 7.51,
+    "risk_reward": 1.03,
+    "profit_factor": 1.39,
+    "expectancy": 1.25
+   },
+   "test": {
+    "count": 1743,
+    "win_rate": 65.06,
+    "avg_win": 8.89,
+    "avg_loss": 5.99,
+    "risk_reward": 1.48,
+    "profit_factor": 2.79,
+    "expectancy": 3.71
+   }
+  },
+  "高ボラ(ATR比上位) + RSI30以下 + 配当利回り3%以上": {
+   "train": {
+    "count": 2499,
+    "win_rate": 59.78,
+    "avg_win": 7.55,
+    "avg_loss": 8.06,
+    "risk_reward": 0.94,
+    "profit_factor": 1.4,
+    "expectancy": 1.3
+   },
+   "test": {
+    "count": 746,
+    "win_rate": 75.34,
+    "avg_win": 9.28,
+    "avg_loss": 4.28,
+    "risk_reward": 2.17,
+    "profit_factor": 6.66,
+    "expectancy": 5.94
+   }
+  },
+  "高ボラ(ATR比上位) + 市場より強い + 配当利回り3%以上": {
+   "train": {
+    "count": 1858,
+    "win_rate": 58.93,
+    "avg_win": 7.87,
+    "avg_loss": 6.17,
+    "risk_reward": 1.28,
+    "profit_factor": 1.84,
+    "expectancy": 2.11
+   },
+   "test": {
+    "count": 896,
+    "win_rate": 61.27,
+    "avg_win": 7.5,
+    "avg_loss": 5.05,
+    "risk_reward": 1.49,
+    "profit_factor": 2.36,
+    "expectancy": 2.65
+   }
+  },
+  "高ボラ(ATR比上位) + 直近10日-3%以下 + 配当利回り3%以上": {
+   "train": {
+    "count": 5540,
+    "win_rate": 57.15,
+    "avg_win": 7.51,
+    "avg_loss": 7.08,
+    "risk_reward": 1.06,
+    "profit_factor": 1.43,
+    "expectancy": 1.29
+   },
+   "test": {
+    "count": 2140,
+    "win_rate": 69.25,
+    "avg_win": 8.11,
+    "avg_loss": 5.05,
+    "risk_reward": 1.61,
+    "profit_factor": 3.64,
+    "expectancy": 4.07
+   }
+  },
+  "RSI30以下 + 直近10日-3%以下 + 配当利回り3%以上": {
+   "train": {
+    "count": 2985,
+    "win_rate": 58.39,
+    "avg_win": 7.18,
+    "avg_loss": 7.8,
+    "risk_reward": 0.92,
+    "profit_factor": 1.3,
+    "expectancy": 0.97
+   },
+   "test": {
+    "count": 995,
+    "win_rate": 73.67,
+    "avg_win": 8.55,
+    "avg_loss": 4.06,
+    "risk_reward": 2.11,
+    "profit_factor": 5.92,
+    "expectancy": 5.23
+   }
+  },
+  "市場より弱い + 高ボラ(ATR比上位) + RSI30以下 + 直近10日-3%以下": {
+   "train": {
+    "count": 2695,
+    "win_rate": 57.51,
+    "avg_win": 7.96,
+    "avg_loss": 7.31,
+    "risk_reward": 1.09,
+    "profit_factor": 1.48,
+    "expectancy": 1.49
+   },
+   "test": {
+    "count": 1254,
+    "win_rate": 60.77,
+    "avg_win": 8.58,
+    "avg_loss": 6.12,
+    "risk_reward": 1.4,
+    "profit_factor": 2.19,
+    "expectancy": 2.84
+   }
+  },
+  "市場より弱い + 高ボラ(ATR比上位) + RSI30以下 + 配当利回り3%以上": {
+   "train": {
+    "count": 1188,
+    "win_rate": 59.76,
+    "avg_win": 8.27,
+    "avg_loss": 7.74,
+    "risk_reward": 1.07,
+    "profit_factor": 1.6,
+    "expectancy": 1.85
+   },
+   "test": {
+    "count": 427,
+    "win_rate": 71.19,
+    "avg_win": 9.19,
+    "avg_loss": 4.59,
+    "risk_reward": 2.0,
+    "profit_factor": 4.99,
+    "expectancy": 5.23
+   }
+  },
+  "市場より弱い + 高ボラ(ATR比上位) + 直近10日-3%以下 + 配当利回り3%以上": {
+   "train": {
+    "count": 2379,
+    "win_rate": 57.29,
+    "avg_win": 8.2,
+    "avg_loss": 6.87,
+    "risk_reward": 1.19,
+    "profit_factor": 1.62,
+    "expectancy": 1.79
+   },
+   "test": {
+    "count": 1012,
+    "win_rate": 64.72,
+    "avg_win": 7.93,
+    "avg_loss": 5.1,
+    "risk_reward": 1.55,
+    "profit_factor": 2.87,
+    "expectancy": 3.34
+   }
+  },
+  "市場より弱い + RSI30以下 + 直近10日-3%以下 + 配当利回り3%以上": {
+   "train": {
+    "count": 1376,
+    "win_rate": 58.72,
+    "avg_win": 8.06,
+    "avg_loss": 7.6,
+    "risk_reward": 1.06,
+    "profit_factor": 1.52,
+    "expectancy": 1.61
+   },
+   "test": {
+    "count": 552,
+    "win_rate": 71.01,
+    "avg_win": 8.42,
+    "avg_loss": 3.9,
+    "risk_reward": 2.16,
+    "profit_factor": 5.31,
+    "expectancy": 4.85
+   }
+  },
+  "高ボラ(ATR比上位) + RSI30以下 + 直近10日-3%以下 + 配当利回り3%以上": {
+   "train": {
+    "count": 2293,
+    "win_rate": 58.92,
+    "avg_win": 7.71,
+    "avg_loss": 8.24,
+    "risk_reward": 0.94,
+    "profit_factor": 1.35,
+    "expectancy": 1.19
+   },
+   "test": {
+    "count": 650,
+    "win_rate": 76.92,
+    "avg_win": 9.64,
+    "avg_loss": 4.3,
+    "risk_reward": 2.24,
+    "profit_factor": 7.52,
+    "expectancy": 6.43
+   }
+  }
+ },
+ "strategies": {
+  "ブレイクアウト": {
+   "train": {
+    "count": 156,
+    "win_rate": 47.44,
+    "avg_win": 6.41,
+    "avg_loss": 5.19,
+    "risk_reward": 1.23,
+    "profit_factor": 1.13,
+    "expectancy": 0.34
+   },
+   "test": {
+    "count": 191,
+    "win_rate": 55.5,
+    "avg_win": 8.39,
+    "avg_loss": 5.66,
+    "risk_reward": 1.48,
+    "profit_factor": 1.87,
+    "expectancy": 2.17
+   },
+   "test_trailing": {
+    "count": 180,
+    "win_rate": 47.22,
+    "avg_win": 15.09,
+    "avg_loss": 6.01,
+    "risk_reward": 2.51,
+    "profit_factor": 2.25,
+    "expectancy": 3.96
+   },
+   "regimes": {
+    "上昇": {
+     "train": {
+      "count": 96,
+      "win_rate": 43.75,
+      "avg_win": 6.87,
+      "avg_loss": 5.38,
+      "risk_reward": 1.28,
+      "profit_factor": 1.01,
+      "expectancy": 0.03
+     },
+     "test": {
+      "count": 163,
+      "win_rate": 55.83,
+      "avg_win": 8.42,
+      "avg_loss": 5.56,
+      "risk_reward": 1.51,
+      "profit_factor": 1.94,
+      "expectancy": 2.28
+     }
+    },
+    "下落": {
+     "train": {
+      "count": 9,
+      "win_rate": 55.56,
+      "avg_win": 10.64,
+      "avg_loss": 2.05,
+      "risk_reward": 5.2,
+      "profit_factor": 6.5,
+      "expectancy": 5.0
+     },
+     "test": {
+      "count": 0
+     }
+    },
+    "横ばい": {
+     "train": {
+      "count": 51,
+      "win_rate": 52.94,
+      "avg_win": 4.91,
+      "avg_loss": 5.3,
+      "risk_reward": 0.93,
+      "profit_factor": 1.04,
+      "expectancy": 0.11
+     },
+     "test": {
+      "count": 28,
+      "win_rate": 53.57,
+      "avg_win": 8.2,
+      "avg_loss": 6.18,
+      "risk_reward": 1.33,
+      "profit_factor": 1.53,
+      "expectancy": 1.52
+     }
+    }
+   }
+  },
+  "順張り": {
+   "train": {
+    "count": 12534,
+    "win_rate": 49.16,
+    "avg_win": 6.38,
+    "avg_loss": 6.42,
+    "risk_reward": 0.99,
+    "profit_factor": 0.97,
+    "expectancy": -0.1
+   },
+   "test": {
+    "count": 10669,
+    "win_rate": 58.19,
+    "avg_win": 8.08,
+    "avg_loss": 5.97,
+    "risk_reward": 1.35,
+    "profit_factor": 1.89,
+    "expectancy": 2.22
+   },
+   "test_trailing": {
+    "count": 10187,
+    "win_rate": 50.67,
+    "avg_win": 13.42,
+    "avg_loss": 6.11,
+    "risk_reward": 2.19,
+    "profit_factor": 2.26,
+    "expectancy": 3.79
+   },
+   "regimes": {
+    "上昇": {
+     "train": {
+      "count": 7064,
+      "win_rate": 48.12,
+      "avg_win": 6.57,
+      "avg_loss": 6.31,
+      "risk_reward": 1.04,
+      "profit_factor": 0.97,
+      "expectancy": -0.09
+     },
+     "test": {
+      "count": 7490,
+      "win_rate": 63.02,
+      "avg_win": 8.7,
+      "avg_loss": 6.07,
+      "risk_reward": 1.43,
+      "profit_factor": 2.45,
+      "expectancy": 3.25
+     }
+    },
+    "下落": {
+     "train": {
+      "count": 903,
+      "win_rate": 56.26,
+      "avg_win": 7.09,
+      "avg_loss": 5.42,
+      "risk_reward": 1.31,
+      "profit_factor": 1.7,
+      "expectancy": 1.64
+     },
+     "test": {
+      "count": 577,
+      "win_rate": 47.14,
+      "avg_win": 6.21,
+      "avg_loss": 8.77,
+      "risk_reward": 0.71,
+      "profit_factor": 0.64,
+      "expectancy": -1.67
+     }
+    },
+    "横ばい": {
+     "train": {
+      "count": 4567,
+      "win_rate": 49.38,
+      "avg_win": 5.95,
+      "avg_loss": 6.77,
+      "risk_reward": 0.88,
+      "profit_factor": 0.86,
+      "expectancy": -0.47
+     },
+     "test": {
+      "count": 2602,
+      "win_rate": 46.73,
+      "avg_win": 6.1,
+      "avg_loss": 5.15,
+      "risk_reward": 1.18,
+      "profit_factor": 1.04,
+      "expectancy": 0.12
+     }
+    }
+   }
+  },
+  "逆張り": {
+   "train": {
+    "count": 9162,
+    "win_rate": 55.56,
+    "avg_win": 7.11,
+    "avg_loss": 6.99,
+    "risk_reward": 1.02,
+    "profit_factor": 1.28,
+    "expectancy": 0.86
+   },
+   "test": {
+    "count": 3921,
+    "win_rate": 62.94,
+    "avg_win": 7.92,
+    "avg_loss": 5.28,
+    "risk_reward": 1.5,
+    "profit_factor": 2.57,
+    "expectancy": 3.04
+   },
+   "test_trailing": {
+    "count": 3675,
+    "win_rate": 51.1,
+    "avg_win": 13.25,
+    "avg_loss": 6.28,
+    "risk_reward": 2.11,
+    "profit_factor": 2.21,
+    "expectancy": 3.71
+   },
+   "regimes": {
+    "上昇": {
+     "train": {
+      "count": 1961,
+      "win_rate": 51.15,
+      "avg_win": 7.07,
+      "avg_loss": 5.52,
+      "risk_reward": 1.28,
+      "profit_factor": 1.34,
+      "expectancy": 0.93
+     },
+     "test": {
+      "count": 1787,
+      "win_rate": 55.79,
+      "avg_win": 7.2,
+      "avg_loss": 5.26,
+      "risk_reward": 1.37,
+      "profit_factor": 1.74,
+      "expectancy": 1.71
+     }
+    },
+    "下落": {
+     "train": {
+      "count": 2637,
+      "win_rate": 62.0,
+      "avg_win": 8.67,
+      "avg_loss": 8.19,
+      "risk_reward": 1.06,
+      "profit_factor": 1.74,
+      "expectancy": 2.29
+     },
+     "test": {
+      "count": 871,
+      "win_rate": 81.86,
+      "avg_win": 10.76,
+      "avg_loss": 6.59,
+      "risk_reward": 1.63,
+      "profit_factor": 7.51,
+      "expectancy": 7.64
+     }
+    },
+    "横ばい": {
+     "train": {
+      "count": 4564,
+      "win_rate": 53.72,
+      "avg_win": 6.08,
+      "avg_loss": 7.09,
+      "risk_reward": 0.86,
+      "profit_factor": 1.0,
+      "expectancy": 0.01
+     },
+     "test": {
+      "count": 1263,
+      "win_rate": 60.02,
+      "avg_win": 6.2,
+      "avg_loss": 4.92,
+      "risk_reward": 1.26,
+      "profit_factor": 1.91,
+      "expectancy": 1.77
+     }
+    }
+   }
+  },
+  "レンジ": {
+   "train": {
+    "count": 6579,
+    "win_rate": 51.76,
+    "avg_win": 6.18,
+    "avg_loss": 5.76,
+    "risk_reward": 1.07,
+    "profit_factor": 1.16,
+    "expectancy": 0.43
+   },
+   "test": {
+    "count": 4356,
+    "win_rate": 60.58,
+    "avg_win": 6.62,
+    "avg_loss": 5.15,
+    "risk_reward": 1.28,
+    "profit_factor": 1.98,
+    "expectancy": 1.98
+   },
+   "test_trailing": {
+    "count": 4191,
+    "win_rate": 53.02,
+    "avg_win": 12.68,
+    "avg_loss": 6.03,
+    "risk_reward": 2.1,
+    "profit_factor": 2.37,
+    "expectancy": 3.89
+   },
+   "regimes": {
+    "上昇": {
+     "train": {
+      "count": 2317,
+      "win_rate": 45.79,
+      "avg_win": 6.45,
+      "avg_loss": 5.7,
+      "risk_reward": 1.13,
+      "profit_factor": 0.96,
+      "expectancy": -0.12
+     },
+     "test": {
+      "count": 2536,
+      "win_rate": 62.58,
+      "avg_win": 7.02,
+      "avg_loss": 5.26,
+      "risk_reward": 1.34,
+      "profit_factor": 2.25,
+      "expectancy": 2.44
+     }
+    },
+    "下落": {
+     "train": {
+      "count": 1051,
+      "win_rate": 64.51,
+      "avg_win": 6.57,
+      "avg_loss": 5.36,
+      "risk_reward": 1.23,
+      "profit_factor": 2.24,
+      "expectancy": 2.35
+     },
+     "test": {
+      "count": 394,
+      "win_rate": 59.9,
+      "avg_win": 6.7,
+      "avg_loss": 7.16,
+      "risk_reward": 0.93,
+      "profit_factor": 1.4,
+      "expectancy": 1.14
+     }
+    },
+    "横ばい": {
+     "train": {
+      "count": 3211,
+      "win_rate": 51.88,
+      "avg_win": 5.86,
+      "avg_loss": 5.91,
+      "risk_reward": 0.99,
+      "profit_factor": 1.07,
+      "expectancy": 0.21
+     },
+     "test": {
+      "count": 1426,
+      "win_rate": 57.22,
+      "avg_win": 5.8,
+      "avg_loss": 4.47,
+      "risk_reward": 1.3,
+      "profit_factor": 1.74,
+      "expectancy": 1.41
+     }
+    }
+   }
+  }
+ },
+ "regimes_baseline": {
+  "上昇": {
+   "train": {
+    "count": 23183,
+    "win_rate": 48.61,
+    "avg_win": 6.73,
+    "avg_loss": 5.98,
+    "risk_reward": 1.13,
+    "profit_factor": 1.07,
+    "expectancy": 0.22
+   },
+   "test": {
+    "count": 23316,
+    "win_rate": 61.36,
+    "avg_win": 7.98,
+    "avg_loss": 5.73,
+    "risk_reward": 1.39,
+    "profit_factor": 2.22,
+    "expectancy": 2.69
+   }
+  },
+  "下落": {
+   "train": {
+    "count": 11832,
+    "win_rate": 64.14,
+    "avg_win": 7.94,
+    "avg_loss": 6.28,
+    "risk_reward": 1.26,
+    "profit_factor": 2.28,
+    "expectancy": 2.86
+   },
+   "test": {
+    "count": 4520,
+    "win_rate": 64.23,
+    "avg_win": 8.28,
+    "avg_loss": 7.62,
+    "risk_reward": 1.09,
+    "profit_factor": 1.96,
+    "expectancy": 2.61
+   }
+  },
+  "横ばい": {
+   "train": {
+    "count": 28849,
+    "win_rate": 51.57,
+    "avg_win": 6.25,
+    "avg_loss": 6.6,
+    "risk_reward": 0.95,
+    "profit_factor": 1.01,
+    "expectancy": 0.04
+   },
+   "test": {
+    "count": 11899,
+    "win_rate": 53.21,
+    "avg_win": 6.22,
+    "avg_loss": 4.9,
+    "risk_reward": 1.27,
+    "profit_factor": 1.45,
+    "expectancy": 1.03
+   }
+  }
+ },
+ "sectors": {
+  "Basic Materials": {
+   "count": 12233,
+   "win_rate": 53.9,
+   "avg_win": 6.96,
+   "avg_loss": 6.24,
+   "risk_reward": 1.12,
+   "profit_factor": 1.32,
+   "expectancy": 0.9
+  },
+  "Communication Services": {
+   "count": 5118,
+   "win_rate": 55.08,
+   "avg_win": 7.15,
+   "avg_loss": 6.03,
+   "risk_reward": 1.18,
+   "profit_factor": 1.46,
+   "expectancy": 1.24
+  },
+  "Consumer Cyclical": {
+   "count": 15732,
+   "win_rate": 53.37,
+   "avg_win": 7.04,
+   "avg_loss": 6.17,
+   "risk_reward": 1.14,
+   "profit_factor": 1.31,
+   "expectancy": 0.89
+  },
+  "Consumer Defensive": {
+   "count": 7429,
+   "win_rate": 53.06,
+   "avg_win": 5.61,
+   "avg_loss": 4.9,
+   "risk_reward": 1.14,
+   "profit_factor": 1.3,
+   "expectancy": 0.68
+  },
+  "Energy": {
+   "count": 1311,
+   "win_rate": 57.36,
+   "avg_win": 7.44,
+   "avg_loss": 6.28,
+   "risk_reward": 1.18,
+   "profit_factor": 1.61,
+   "expectancy": 1.61
+  },
+  "Financial Services": {
+   "count": 10488,
+   "win_rate": 59.95,
+   "avg_win": 6.27,
+   "avg_loss": 5.53,
+   "risk_reward": 1.13,
+   "profit_factor": 1.71,
+   "expectancy": 1.56
+  },
+  "Healthcare": {
+   "count": 5681,
+   "win_rate": 53.65,
+   "avg_win": 7.27,
+   "avg_loss": 6.2,
+   "risk_reward": 1.17,
+   "profit_factor": 1.37,
+   "expectancy": 1.04
+  },
+  "Industrials": {
+   "count": 29441,
+   "win_rate": 55.92,
+   "avg_win": 7.5,
+   "avg_loss": 6.26,
+   "risk_reward": 1.2,
+   "profit_factor": 1.53,
+   "expectancy": 1.45
+  },
+  "Real Estate": {
+   "count": 3496,
+   "win_rate": 56.69,
+   "avg_win": 5.8,
+   "avg_loss": 5.22,
+   "risk_reward": 1.11,
+   "profit_factor": 1.46,
+   "expectancy": 1.04
+  },
+  "Technology": {
+   "count": 10485,
+   "win_rate": 55.67,
+   "avg_win": 8.55,
+   "avg_loss": 7.01,
+   "risk_reward": 1.22,
+   "profit_factor": 1.54,
+   "expectancy": 1.67
+  },
+  "Utilities": {
+   "count": 2185,
+   "win_rate": 52.91,
+   "avg_win": 6.37,
+   "avg_loss": 5.06,
+   "risk_reward": 1.26,
+   "profit_factor": 1.43,
+   "expectancy": 1.01
+  }
+ },
+ "symbol_types": {
+  "大型株": {
+   "count": 67333,
+   "win_rate": 56.29,
+   "avg_win": 7.13,
+   "avg_loss": 5.95,
+   "risk_reward": 1.2,
+   "profit_factor": 1.55,
+   "expectancy": 1.43
+  },
+  "中型株": {
+   "count": 32773,
+   "win_rate": 53.82,
+   "avg_win": 6.92,
+   "avg_loss": 6.22,
+   "risk_reward": 1.11,
+   "profit_factor": 1.31,
+   "expectancy": 0.87
+  },
+  "小型株": {
+   "count": 3493,
+   "win_rate": 49.79,
+   "avg_win": 8.28,
+   "avg_loss": 6.95,
+   "risk_reward": 1.19,
+   "profit_factor": 1.19,
+   "expectancy": 0.67
+  },
+  "グロース株": {
+   "count": 62961,
+   "win_rate": 56.09,
+   "avg_win": 7.42,
+   "avg_loss": 6.17,
+   "risk_reward": 1.2,
+   "profit_factor": 1.54,
+   "expectancy": 1.47
+  },
+  "バリュー株": {
+   "count": 40638,
+   "win_rate": 54.05,
+   "avg_win": 6.58,
+   "avg_loss": 5.93,
+   "risk_reward": 1.11,
+   "profit_factor": 1.31,
+   "expectancy": 0.85
+  },
+  "高配当株": {
+   "count": 19976,
+   "win_rate": 55.62,
+   "avg_win": 6.41,
+   "avg_loss": 5.67,
+   "risk_reward": 1.13,
+   "profit_factor": 1.43,
+   "expectancy": 1.07
+  }
+ },
+ "score_versions": {
+  "A(期待値重み加点式)": {
+   "train": {
+    "auc": 0.5345,
+    "quintiles(低→高)": [
+     {
+      "count": 12773,
+      "win_rate": 48.33,
+      "avg_win": 6.2,
+      "avg_loss": 6.31,
+      "risk_reward": 0.98,
+      "profit_factor": 0.93,
+      "expectancy": -0.24
+     },
+     {
+      "count": 12773,
+      "win_rate": 50.76,
+      "avg_win": 6.42,
+      "avg_loss": 6.26,
+      "risk_reward": 1.03,
+      "profit_factor": 1.06,
+      "expectancy": 0.19
+     },
+     {
+      "count": 12772,
+      "win_rate": 53.14,
+      "avg_win": 6.5,
+      "avg_loss": 5.94,
+      "risk_reward": 1.09,
+      "profit_factor": 1.25,
+      "expectancy": 0.69
+     },
+     {
+      "count": 12773,
+      "win_rate": 55.55,
+      "avg_win": 7.19,
+      "avg_loss": 6.44,
+      "risk_reward": 1.12,
+      "profit_factor": 1.4,
+      "expectancy": 1.15
+     },
+     {
+      "count": 12773,
+      "win_rate": 56.34,
+      "avg_win": 7.51,
+      "avg_loss": 6.65,
+      "risk_reward": 1.13,
+      "profit_factor": 1.47,
+      "expectancy": 1.35
+     }
+    ],
+    "monotonicity_win_rate": 1.0,
+    "monotonicity_expectancy": 1.0
+   },
+   "test": {
+    "auc": 0.511,
+    "quintiles(低→高)": [
+     {
+      "count": 7947,
+      "win_rate": 57.83,
+      "avg_win": 7.96,
+      "avg_loss": 5.83,
+      "risk_reward": 1.37,
+      "profit_factor": 1.88,
+      "expectancy": 2.16
+     },
+     {
+      "count": 7947,
+      "win_rate": 58.56,
+      "avg_win": 7.2,
+      "avg_loss": 5.59,
+      "risk_reward": 1.29,
+      "profit_factor": 1.83,
+      "expectancy": 1.91
+     },
+     {
+      "count": 7947,
+      "win_rate": 58.81,
+      "avg_win": 7.32,
+      "avg_loss": 5.52,
+      "risk_reward": 1.33,
+      "profit_factor": 1.9,
+      "expectancy": 2.04
+     },
+     {
+      "count": 7947,
+      "win_rate": 59.73,
+      "avg_win": 7.3,
+      "avg_loss": 5.54,
+      "risk_reward": 1.32,
+      "profit_factor": 1.96,
+      "expectancy": 2.14
+     },
+     {
+      "count": 7947,
+      "win_rate": 61.29,
+      "avg_win": 7.93,
+      "avg_loss": 5.67,
+      "risk_reward": 1.4,
+      "profit_factor": 2.22,
+      "expectancy": 2.67
+     }
+    ],
+    "monotonicity_win_rate": 1.0,
+    "monotonicity_expectancy": 0.4
+   },
+   "label": "A",
+   "weights": {
+    "25日線上": -0.2,
+    "MA上昇配列": -0.51,
+    "MACD上": 0.07,
+    "MACD_GC": -0.08,
+    "MACD_DC": -0.38,
+    "RSI30以下": 0.43,
+    "RSI70以上": -0.71,
+    "ボリンジャー-2σ以下": -0.5,
+    "ボリンジャー+2σ以上": -0.18,
+    "出来高増×上昇": -0.24,
+    "出来高2倍以上": -0.68,
+    "直近10日+3%以上": -0.25,
+    "直近10日-3%以下": 0.31,
+    "市場より強い": 0.35,
+    "市場より弱い": 0.51,
+    "高ボラ(ATR比上位)": 0.45,
+    "配当利回り3%以上": 0.17
+   }
+  },
+  "B(戦略タイプ別)": {
+   "train": {
+    "auc": 0.5067,
+    "quintiles(低→高)": [
+     {
+      "count": 12773,
+      "win_rate": 51.9,
+      "avg_win": 6.31,
+      "avg_loss": 5.96,
+      "risk_reward": 1.06,
+      "profit_factor": 1.15,
+      "expectancy": 0.43
+     },
+     {
+      "count": 12773,
+      "win_rate": 52.19,
+      "avg_win": 7.35,
+      "avg_loss": 6.95,
+      "risk_reward": 1.06,
+      "profit_factor": 1.16,
+      "expectancy": 0.54
+     },
+     {
+      "count": 12772,
+      "win_rate": 53.21,
+      "avg_win": 7.04,
+      "avg_loss": 6.31,
+      "risk_reward": 1.12,
+      "profit_factor": 1.28,
+      "expectancy": 0.81
+     },
+     {
+      "count": 12773,
+      "win_rate": 52.11,
+      "avg_win": 6.42,
+      "avg_loss": 5.74,
+      "risk_reward": 1.12,
+      "profit_factor": 1.22,
+      "expectancy": 0.61
+     },
+     {
+      "count": 12773,
+      "win_rate": 54.71,
+      "avg_win": 6.82,
+      "avg_loss": 6.63,
+      "risk_reward": 1.03,
+      "profit_factor": 1.25,
+      "expectancy": 0.75
+     }
+    ],
+    "monotonicity_win_rate": 0.7,
+    "monotonicity_expectancy": 0.7
+   },
+   "test": {
+    "auc": 0.511,
+    "quintiles(低→高)": [
+     {
+      "count": 7947,
+      "win_rate": 57.76,
+      "avg_win": 6.97,
+      "avg_loss": 5.5,
+      "risk_reward": 1.27,
+      "profit_factor": 1.74,
+      "expectancy": 1.71
+     },
+     {
+      "count": 7947,
+      "win_rate": 58.71,
+      "avg_win": 8.54,
+      "avg_loss": 6.22,
+      "risk_reward": 1.37,
+      "profit_factor": 1.96,
+      "expectancy": 2.46
+     },
+     {
+      "count": 7947,
+      "win_rate": 58.64,
+      "avg_win": 8.19,
+      "avg_loss": 6.16,
+      "risk_reward": 1.33,
+      "profit_factor": 1.89,
+      "expectancy": 2.26
+     },
+     {
+      "count": 7947,
+      "win_rate": 59.42,
+      "avg_win": 6.72,
+      "avg_loss": 5.0,
+      "risk_reward": 1.34,
+      "profit_factor": 1.98,
+      "expectancy": 1.97
+     },
+     {
+      "count": 7947,
+      "win_rate": 61.71,
+      "avg_win": 7.31,
+      "avg_loss": 5.26,
+      "risk_reward": 1.39,
+      "profit_factor": 2.25,
+      "expectancy": 2.51
+     }
+    ],
+    "monotonicity_win_rate": 0.9,
+    "monotonicity_expectancy": 0.6
+   },
+   "label": "B"
+  },
+  "C(削減後均等加点)": {
+   "train": {
+    "auc": 0.5308,
+    "quintiles(低→高)": [
+     {
+      "count": 12773,
+      "win_rate": 49.3,
+      "avg_win": 6.57,
+      "avg_loss": 6.36,
+      "risk_reward": 1.03,
+      "profit_factor": 1.01,
+      "expectancy": 0.03
+     },
+     {
+      "count": 12773,
+      "win_rate": 50.67,
+      "avg_win": 6.01,
+      "avg_loss": 5.83,
+      "risk_reward": 1.03,
+      "profit_factor": 1.07,
+      "expectancy": 0.19
+     },
+     {
+      "count": 12772,
+      "win_rate": 52.69,
+      "avg_win": 6.61,
+      "avg_loss": 6.46,
+      "risk_reward": 1.02,
+      "profit_factor": 1.15,
+      "expectancy": 0.45
+     },
+     {
+      "count": 12773,
+      "win_rate": 54.06,
+      "avg_win": 7.11,
+      "avg_loss": 6.42,
+      "risk_reward": 1.11,
+      "profit_factor": 1.31,
+      "expectancy": 0.92
+     },
+     {
+      "count": 12773,
+      "win_rate": 57.4,
+      "avg_win": 7.53,
+      "avg_loss": 6.54,
+      "risk_reward": 1.15,
+      "profit_factor": 1.56,
+      "expectancy": 1.56
+     }
+    ],
+    "monotonicity_win_rate": 1.0,
+    "monotonicity_expectancy": 1.0
+   },
+   "test": {
+    "auc": 0.5029,
+    "quintiles(低→高)": [
+     {
+      "count": 7947,
+      "win_rate": 58.37,
+      "avg_win": 7.17,
+      "avg_loss": 5.46,
+      "risk_reward": 1.31,
+      "profit_factor": 1.85,
+      "expectancy": 1.92
+     },
+     {
+      "count": 7947,
+      "win_rate": 60.21,
+      "avg_win": 6.79,
+      "avg_loss": 5.24,
+      "risk_reward": 1.29,
+      "profit_factor": 1.97,
+      "expectancy": 2.01
+     },
+     {
+      "count": 7947,
+      "win_rate": 59.59,
+      "avg_win": 7.81,
+      "avg_loss": 5.93,
+      "risk_reward": 1.32,
+      "profit_factor": 1.95,
+      "expectancy": 2.27
+     },
+     {
+      "count": 7947,
+      "win_rate": 58.08,
+      "avg_win": 7.75,
+      "avg_loss": 5.7,
+      "risk_reward": 1.36,
+      "profit_factor": 1.89,
+      "expectancy": 2.12
+     },
+     {
+      "count": 7947,
+      "win_rate": 59.97,
+      "avg_win": 8.2,
+      "avg_loss": 5.83,
+      "risk_reward": 1.41,
+      "profit_factor": 2.12,
+      "expectancy": 2.59
+     }
+    ],
+    "monotonicity_win_rate": 0.0,
+    "monotonicity_expectancy": 0.9
+   },
+   "label": "C",
+   "kept_features": [
+    "MACD上",
+    "RSI30以下",
+    "直近10日-3%以下",
+    "市場より強い",
+    "市場より弱い",
+    "高ボラ(ATR比上位)",
+    "配当利回り3%以上"
+   ]
+  }
+ },
+ "walk_forward": {
+  "2020-12-31": {
+   "auc": 0.4793,
+   "top20pct": {
+    "count": 12612,
+    "win_rate": 54.19,
+    "avg_win": 7.99,
+    "avg_loss": 6.21,
+    "risk_reward": 1.29,
+    "profit_factor": 1.53,
+    "expectancy": 1.5
+   },
+   "bottom20pct": {
+    "count": 12604,
+    "win_rate": 59.16,
+    "avg_win": 7.16,
+    "avg_loss": 5.28,
+    "risk_reward": 1.36,
+    "profit_factor": 1.98,
+    "expectancy": 2.1
+   }
+  },
+  "2022-12-31": {
+   "auc": 0.5109,
+   "top20pct": {
+    "count": 8234,
+    "win_rate": 60.78,
+    "avg_win": 7.93,
+    "avg_loss": 5.75,
+    "risk_reward": 1.38,
+    "profit_factor": 2.14,
+    "expectancy": 2.57
+   },
+   "bottom20pct": {
+    "count": 8244,
+    "win_rate": 57.87,
+    "avg_win": 8.01,
+    "avg_loss": 5.88,
+    "risk_reward": 1.36,
+    "profit_factor": 1.88,
+    "expectancy": 2.17
+   }
+  },
+  "2024-12-31": {
+   "auc": 0.4924,
+   "top20pct": {
+    "count": 3284,
+    "win_rate": 60.93,
+    "avg_win": 9.27,
+    "avg_loss": 6.01,
+    "risk_reward": 1.54,
+    "profit_factor": 2.41,
+    "expectancy": 3.31
+   },
+   "bottom20pct": {
+    "count": 3284,
+    "win_rate": 62.64,
+    "avg_win": 9.46,
+    "avg_loss": 6.61,
+    "risk_reward": 1.43,
+    "profit_factor": 2.41,
+    "expectancy": 3.47
+   }
+  }
+ }
+}
