@@ -38,8 +38,15 @@ def holding_embed(summary: HoldingSummary) -> dict:
     heading = f"{summary.symbol} {summary.name}" if summary.name else summary.symbol
     profit = f"{summary.profit_pct:+.1f}%" if summary.profit_pct is not None else "—"
 
+    if summary.avg_cost > 0:
+        position_line = (
+            f"現在: {_price(summary.current_price)} / 取得: {_price(summary.avg_cost)} / 損益: {profit}"
+        )
+    else:
+        # Watch-only symbols (on-demand analysis) have no position, so skip 取得/損益.
+        position_line = f"現在: {_price(summary.current_price)}"
     parts = [
-        f"現在: {_price(summary.current_price)} / 取得: {_price(summary.avg_cost)} / 損益: {profit}",
+        position_line,
         f"**判断**: {summary.action}",
         f"第一目標: {_price(summary.take_profit)} / 損切: {_price(summary.stop_loss)}"
         + (f" / 押し目: {_price(summary.add_price)}" if summary.add_price is not None else ""),

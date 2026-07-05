@@ -41,6 +41,13 @@ def test_holding_embed_has_color_and_title():
     assert "注意点" in embed["description"]
 
 
+def test_holding_embed_hides_cost_for_watch_only_symbols():
+    embed = holding_embed(_summary(avg_cost=0.0, profit_pct=None))
+    assert "現在" in embed["description"]
+    assert "取得" not in embed["description"]
+    assert "損益" not in embed["description"]
+
+
 def test_market_embed_lists_changes():
     embed = market_embed("強気", {"日経平均": (39000.0, 1.2)})
     assert "強気" in embed["title"]
