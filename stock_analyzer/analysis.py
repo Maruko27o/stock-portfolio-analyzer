@@ -75,6 +75,7 @@ class HoldingAnalysis:
     forward_per: float | None = None  # analyst-estimate PER; preferred over trailing
     atr: float | None = None  # average true range (volatility unit for targets)
     ex_dividend_estimated: bool = False  # True when the date is projected, not announced
+    sma_mid_prev10: float | None = None  # 10営業日前時点の25日線(レンジ判定用)
 
     @property
     def profit_pct(self) -> float | None:
@@ -157,4 +158,5 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
         forward_per=fundamentals["forward_per"],
         atr=average_true_range(highs, lows, closes),
         ex_dividend_estimated=ex_dividend_estimated,
+        sma_mid_prev10=simple_moving_average(closes[:-10], SMA_MID) if len(closes) > 10 else None,
     )

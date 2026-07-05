@@ -76,10 +76,14 @@ def holding_embed(summary: HoldingSummary) -> dict:
         f"第一目標: {_price(summary.take_profit)} / 損切: {_price(summary.stop_loss)}"
         + (f" / 押し目: {_price(summary.add_price)}" if summary.add_price is not None else ""),
     ]
+    if summary.strategy_stats:
+        from stock_analyzer.backtest_stats import format_strategy_compact
+
+        parts.append(f"**{format_strategy_compact(summary.strategy_stats)}**")
     if summary.backtest:
         from stock_analyzer.backtest_stats import format_backtest_compact
 
-        parts.append(f"**{format_backtest_compact(summary.backtest)}**")
+        parts.append(format_backtest_compact(summary.backtest))
     if summary.reasons:
         parts.append("**判断理由**\n" + "\n".join(f"・{r}" for r in summary.reasons))
     if summary.risks:

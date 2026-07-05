@@ -80,6 +80,8 @@ class HoldingSummary:
     ex_dividend_estimated: bool = False
     price_score: int | None = None  # 価格由来シグナルのみのスコア(バックテスト統計の照会キー)
     backtest: dict | None = None  # 保存済みバックテスト統計(該当スコア帯の実績)
+    strategies_active: list = field(default_factory=list)  # 成立中の戦略タイプ
+    strategy_stats: dict | None = None  # 主戦略の検証期間実績(保存済み統計から)
     reasons: list[str] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
 
@@ -318,6 +320,57 @@ def select_reasons(signals: list[Signal], score: int, limit: int = 5) -> list[st
     return [s.reason for s in matching[:limit]]
 
 
+def detect_strategies(analysis: HoldingAnalysis) -> list[str]:
+    """成立している戦略タイプを返す(research.strategy_frameと同一定義)。
+
+    優先順: ブレイクアウト > 順張り > 逆張り > レンジ。
+    """
+    active: list[str] = []
+    price = analysis.current_price
+
+    breakout = (
+        price is not None
+        and analysis.levels is not None
+        and price >= analysis.levels.resistance
+        and "強い上昇" in analysis.volume_price_signal
+    )
+    trend = (
+        price is not None
+        and analysis.sma_short is not None
+        and analysis.sma_mid is not None
+        and analysis.sma_long is not None
+        and price > analysis.sma_mid
+        and analysis.sma_short > analysis.sma_mid > analysis.sma_long
+        and analysis.macd_result is not None
+        and analysis.macd_result.macd > analysis.macd_result.signal
+    )
+    contrarian = (analysis.rsi is not None and analysis.rsi <= 30) or (
+        analysis.bollinger is not None and analysis.bollinger <= -2
+    )
+    sma_flat = (
+        analysis.sma_mid is not None
+        and analysis.sma_mid_prev10
+        and abs(analysis.sma_mid / analysis.sma_mid_prev10 - 1) < 0.01
+    )
+    range_bound = (
+        sma_flat
+        and analysis.bollinger is not None
+        and abs(analysis.bollinger) < 1
+        and not trend
+        and not breakout
+    )
+
+    if breakout:
+        active.append("ブレイクアウト")
+    if trend:
+        active.append("順張り")
+    if contrarian:
+        active.append("逆張り")
+    if range_bound:
+        active.append("レンジ")
+    return active
+
+
 def decide_action(
     rating: str,
     profit_pct: float | None,
@@ -460,6 +513,7 @@ def build_summary(
         days_to_ex_dividend=analysis.days_to_ex_dividend,
         ex_dividend_estimated=analysis.ex_dividend_estimated,
         price_score=price_score,
+        strategies_active=detect_strategies(analysis),
         reasons=select_reasons(signals, score),
         risks=detect_risks(analysis),
     )
@@ -526,6 +580,14 @@ def format_summary(summary: HoldingSummary) -> str:
     ]
     if summary.add_price is not None:
         lines.append(f"押し目買い目安：{_price(summary.add_price)}")
+
+    if summary.strategy_stats:
+        st = summary.strategy_stats
+        scope = f"({st['regime']}相場)" if st.get("regime") else ""
+        lines.append(DIVIDER)
+        lines.append(f"■戦略: {st['strategy']}{scope}")
+        lines.append(f"検証勝率：{st['win_rate']:.1f}%／期待値：{st['expectancy']:+.1f}%")
+        lines.append(f"信頼度：検証{st['count']:,}件(学習期間外)")
 
     if summary.backtest:
         from stock_analyzer.backtest_stats import format_backtest_lines

@@ -11,6 +11,11 @@ import os
 
 DEFAULT_STATS_PATH = "data/backtest_stats.json"
 STATS_PATH_ENV_VAR = "BACKTEST_STATS"
+DEFAULT_STRATEGY_STATS_PATH = "data/strategy_stats.json"
+STRATEGY_STATS_PATH_ENV_VAR = "STRATEGY_STATS"
+
+# research.STRATEGY_PRIORITYと同順(通知を軽く保つためここに複製。テストで一致を保証)
+STRATEGY_PRIORITY = ["ブレイクアウト", "順張り", "逆張り", "レンジ"]
 
 
 def load_stats(path: str | None = None) -> dict | None:
@@ -45,6 +50,56 @@ def stats_for_score(stats: dict | None, score: float | None) -> dict | None:
         # ユニバース全体の頻度を1銘柄あたりに換算(カード表示用)
         entry["signals_per_year_per_symbol"] = round(entry["signals_per_year"] / symbols, 1)
     return entry
+
+
+def load_strategy_stats(path: str | None = None) -> dict | None:
+    """戦略タイプ別統計(research出力)を読み込む。無ければNone。"""
+    path = path or os.environ.get(STRATEGY_STATS_PATH_ENV_VAR) or DEFAULT_STRATEGY_STATS_PATH
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def stats_for_strategy(
+    stats: dict | None, active: list[str], regime: str | None = None
+) -> dict | None:
+    """成立中の戦略のうち最優先のものの検証期間実績を返す。
+
+    現在の相場環境(上昇/下落/横ばい)の実績が十分な件数あればそれを優先し、
+    無ければ全期間の検証実績を使う。検証期間(学習に使っていない期間)の
+    成績のみ表示し、件数を信頼度としてそのまま出す。件数不足はNone。
+    """
+    if not stats or not active:
+        return None
+    min_count = stats.get("metadata", {}).get("min_count", 200)
+    for name in STRATEGY_PRIORITY:
+        if name not in active:
+            continue
+        strategy = stats.get("strategies", {}).get(name, {})
+        if regime:
+            regime_entry = strategy.get("regimes_test", {}).get(regime)
+            if regime_entry and regime_entry.get("count", 0) >= min_count:
+                return {"strategy": name, "regime": regime, **regime_entry}
+        entry = strategy.get("test")
+        if entry and entry.get("count", 0) >= min_count:
+            return {"strategy": name, "regime": None, **entry}
+    return None
+
+
+def format_strategy_compact(entry: dict) -> str:
+    """1行の戦略実績表示(Discord用)。"""
+    pf = entry.get("profit_factor")
+    scope = f"({entry['regime']}相場)" if entry.get("regime") else ""
+    return (
+        f"戦略: {entry['strategy']}{scope}｜検証実績 勝率{entry['win_rate']:.1f}%"
+        f" / 期待値{entry['expectancy']:+.1f}%"
+        + (f" / PF{pf:.2f}" if pf is not None else "")
+        + f" / 信頼度n={entry['count']:,}"
+    )
 
 
 def format_backtest_compact(entry: dict) -> str:

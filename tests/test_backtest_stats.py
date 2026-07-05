@@ -44,6 +44,55 @@ def test_load_stats_missing_file_returns_none(tmp_path):
     assert load_stats(str(tmp_path / "nope.json")) is None
 
 
+FAKE_STRATEGY_STATS = {
+    "metadata": {"min_count": 200, "basis": "20営業日先リターン"},
+    "strategies": {
+        "順張り": {
+            "test": {"count": 5000, "win_rate": 55.3, "expectancy": 1.9, "profit_factor": 1.6},
+            "regimes_test": {
+                "上昇": {"count": 3000, "win_rate": 63.0, "expectancy": 3.2},
+                "下落": {"count": 50, "win_rate": 47.0, "expectancy": -1.7},
+            },
+        },
+        "逆張り": {"test": {"count": 150, "win_rate": 60.0, "expectancy": 2.5}},
+    },
+}
+
+
+def test_stats_for_strategy_uses_priority_and_min_count():
+    from stock_analyzer.backtest_stats import stats_for_strategy
+
+    # 逆張りは件数不足(150<200)なので順張りが選ばれる
+    entry = stats_for_strategy(FAKE_STRATEGY_STATS, ["逆張り", "順張り"])
+    assert entry["strategy"] == "順張り"
+    assert entry["win_rate"] == 55.3
+    # 成立戦略なし・統計なしはNone
+    assert stats_for_strategy(FAKE_STRATEGY_STATS, []) is None
+    assert stats_for_strategy(None, ["順張り"]) is None
+    assert stats_for_strategy(FAKE_STRATEGY_STATS, ["レンジ"]) is None
+
+
+def test_stats_for_strategy_prefers_current_regime_when_enough_samples():
+    from stock_analyzer.backtest_stats import stats_for_strategy
+
+    up = stats_for_strategy(FAKE_STRATEGY_STATS, ["順張り"], regime="上昇")
+    assert up["regime"] == "上昇" and up["win_rate"] == 63.0
+    # 下落相場は件数不足(50<200)なので全体実績にフォールバック
+    down = stats_for_strategy(FAKE_STRATEGY_STATS, ["順張り"], regime="下落")
+    assert down["regime"] is None and down["win_rate"] == 55.3
+
+
+def test_format_strategy_compact():
+    from stock_analyzer.backtest_stats import format_strategy_compact, stats_for_strategy
+
+    entry = stats_for_strategy(FAKE_STRATEGY_STATS, ["順張り"])
+    text = format_strategy_compact(entry)
+    assert "戦略: 順張り" in text
+    assert "勝率55.3%" in text
+    assert "期待値+1.9%" in text
+    assert "n=5,000" in text
+
+
 def test_format_backtest_outputs_required_metrics():
     entry = stats_for_score(FAKE_STATS, 92)
     compact = format_backtest_compact(entry)
