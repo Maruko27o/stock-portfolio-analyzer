@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import argparse
 import time
+from dataclasses import dataclass
 
 from stock_analyzer.analysis import HoldingAnalysis, analyze_holding
 from stock_analyzer.data_fetcher import fetch_fundamentals
+from stock_analyzer.discord import failed_embed, holding_embed, market_embed, swing_embed
 from stock_analyzer.fundamentals import (
     evaluate_current_ratio,
     evaluate_debt_to_equity,
@@ -120,18 +122,26 @@ def _analyze_with_retry(holding: Holding, attempts: int = 2, delay: float = 8.0)
     raise RuntimeError("unreachable")
 
 
-def generate_flex_messages(holdings: list[Holding], include_swing_pick: bool = True) -> list[dict]:
-    """Build LINE Flex message objects: a market card, one card per holding, and a swing card.
+@dataclass
+class ReportData:
+    """Channel-neutral analysis result, fetched once and rendered to any medium."""
 
-    Individual failures (a rate-limited or delisted ticker, a market/swing hiccup) are
-    tolerated so the notification still goes out with whatever succeeded.
-    """
-    bubbles: list[dict] = []
+    sentiment: str
+    snapshot: dict[str, tuple[float | None, float | None]] | None
+    summaries: list  # list[HoldingSummary], ordered by raw_score desc
+    swing_picks: list[dict]
+    failed_symbols: list[str]
 
+    def is_empty(self) -> bool:
+        return not self.snapshot and not self.summaries and not self.swing_picks
+
+
+def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True) -> ReportData:
+    """Fetch and compute everything once, tolerating individual failures."""
+    snapshot: dict | None = None
     try:
         snapshot = fetch_market_snapshot()
         sentiment = evaluate_market_sentiment(snapshot)
-        bubbles.append(market_bubble(sentiment, snapshot))
     except Exception:
         sentiment = "中立"  # neutral fallback so holding scores can still be computed
 
@@ -143,41 +153,75 @@ def generate_flex_messages(holdings: list[Holding], include_swing_pick: bool = T
         except Exception:
             failed_symbols.append(holding.symbol)
     summaries.sort(key=lambda s: s.raw_score, reverse=True)
-    bubbles.extend(holding_bubble(summary) for summary in summaries)
 
+    swing_picks: list[dict] = []
     if include_swing_pick:
         try:
             picks = top_swing_picks()
         except Exception:
             picks = []
-        if picks:
-            pick_dicts = []
-            for candidate in picks:
-                try:
-                    name = fetch_fundamentals(candidate.symbol)["name"]
-                except Exception:
-                    name = None
-                heading = f"{candidate.symbol} {name}" if name else candidate.symbol
-                pick_dicts.append(
-                    {
-                        "heading": heading,
-                        "score": candidate.score,
-                        "current_price": candidate.current_price,
-                        "reasons": candidate.reasons,
-                    }
-                )
-            bubbles.append(swing_bubble(pick_dicts))
+        for candidate in picks:
+            try:
+                name = fetch_fundamentals(candidate.symbol)["name"]
+            except Exception:
+                name = None
+            heading = f"{candidate.symbol} {name}" if name else candidate.symbol
+            swing_picks.append(
+                {
+                    "heading": heading,
+                    "score": candidate.score,
+                    "current_price": candidate.current_price,
+                    "reasons": candidate.reasons,
+                }
+            )
+
+    return ReportData(sentiment, snapshot, summaries, swing_picks, failed_symbols)
+
+
+def flex_messages_from(data: ReportData) -> list[dict]:
+    """Render collected data into LINE Flex message objects."""
+    bubbles: list[dict] = []
+    if data.snapshot:
+        bubbles.append(market_bubble(data.sentiment, data.snapshot))
+    bubbles.extend(holding_bubble(summary) for summary in data.summaries)
+    if data.swing_picks:
+        bubbles.append(swing_bubble(data.swing_picks))
 
     if not bubbles:
-        # Nothing could be fetched at all (e.g. full rate limit) — fail loudly.
         raise RuntimeError("分析データを取得できませんでした（全銘柄・市場データの取得に失敗）")
 
-    messages: list[dict] = to_flex_messages(bubbles, alt_text="株ポートフォリオ分析")
-    if failed_symbols:
+    messages = to_flex_messages(bubbles, alt_text="株ポートフォリオ分析")
+    if data.failed_symbols:
         messages.append(
-            {"type": "text", "text": "⚠️ 取得できなかった銘柄: " + ", ".join(failed_symbols)}
+            {"type": "text", "text": "⚠️ 取得できなかった銘柄: " + ", ".join(data.failed_symbols)}
         )
     return messages
+
+
+def discord_embeds_from(data: ReportData) -> list[dict]:
+    """Render collected data into Discord embed objects."""
+    embeds: list[dict] = []
+    if data.snapshot:
+        embeds.append(market_embed(data.sentiment, data.snapshot))
+    embeds.extend(holding_embed(summary) for summary in data.summaries)
+    if data.swing_picks:
+        embeds.append(swing_embed(data.swing_picks))
+    if data.failed_symbols:
+        embeds.append(failed_embed(data.failed_symbols))
+
+    if not embeds:
+        raise RuntimeError("分析データを取得できませんでした（全銘柄・市場データの取得に失敗）")
+    return embeds
+
+
+def generate_flex_messages(holdings: list[Holding], include_swing_pick: bool = True) -> list[dict]:
+    """Convenience: collect data and render LINE Flex messages in one call."""
+    return flex_messages_from(collect_report_data(holdings, include_swing_pick))
+
+
+def generate_discord_embeds(holdings: list[Holding], include_swing_pick: bool = True) -> list[dict]:
+    """Convenience: collect data and render Discord embeds in one call."""
+    return discord_embeds_from(collect_report_data(holdings, include_swing_pick))
 
 
 def main() -> None:
