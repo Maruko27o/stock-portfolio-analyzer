@@ -3,3 +3,4 @@ pandas>=2.0
 pytest>=8.0
 requests>=2.31
 gspread>=6.0
+jpholiday>=0.1.9

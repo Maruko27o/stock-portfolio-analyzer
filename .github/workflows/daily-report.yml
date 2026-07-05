@@ -32,6 +32,7 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           ANALYZE_SYMBOLS: ${{ inputs.symbols }}
+          SKIP_IF_MARKET_CLOSED: ${{ github.event_name == 'schedule' && '1' || '' }}
         run: python -m stock_analyzer.daily_notify
 
       - name: Alert on failure

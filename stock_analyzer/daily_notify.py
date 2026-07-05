@@ -5,9 +5,12 @@ import json
 import os
 import re
 import sys
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from stock_analyzer.cli import collect_report_data, discord_embeds_from, flex_messages_from
 from stock_analyzer.discord import send_discord
+from stock_analyzer.market_calendar import is_market_closed
 from stock_analyzer.notifier import broadcast_messages
 from stock_analyzer.portfolio import (
     Holding,
@@ -21,6 +24,7 @@ DISCORD_WEBHOOK_ENV_VAR = "DISCORD_WEBHOOK_URL"
 GOOGLE_SERVICE_ACCOUNT_ENV_VAR = "GOOGLE_SERVICE_ACCOUNT_JSON"
 GOOGLE_SHEET_ID_ENV_VAR = "GOOGLE_SHEET_ID"
 ANALYZE_SYMBOLS_ENV_VAR = "ANALYZE_SYMBOLS"
+SKIP_IF_CLOSED_ENV_VAR = "SKIP_IF_MARKET_CLOSED"
 
 
 def holdings_from_symbols(text: str) -> list[Holding]:
@@ -58,6 +62,17 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    symbols_text = args.symbols or os.environ.get(ANALYZE_SYMBOLS_ENV_VAR, "")
+
+    # Scheduled runs skip closed days (weekends run anyway via cron 1-5, so this
+    # mainly catches Japanese public holidays and year-end closures). On-demand
+    # runs (symbols given / manual button) still work on any day.
+    if os.environ.get(SKIP_IF_CLOSED_ENV_VAR) and not symbols_text.strip():
+        today = datetime.now(ZoneInfo("Asia/Tokyo")).date()
+        if is_market_closed(today):
+            print(f"市場休場日({today})のため通知をスキップしました")
+            return
+
     line_token = os.environ.get(LINE_TOKEN_ENV_VAR)
     discord_url = os.environ.get(DISCORD_WEBHOOK_ENV_VAR)
     if not line_token and not discord_url:
@@ -67,7 +82,6 @@ def main() -> None:
         )
         raise SystemExit(1)
 
-    symbols_text = args.symbols or os.environ.get(ANALYZE_SYMBOLS_ENV_VAR, "")
     if symbols_text.strip():
         # On-demand: analyze just the requested tickers (skip the slow universe scan).
         holdings = holdings_from_symbols(symbols_text)
