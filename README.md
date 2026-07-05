@@ -56,6 +56,10 @@
 - 廃止・データ欠損の銘柄は自動でスキップ
 - 表示スコアは0〜100点で頭打ちですが、**順位付けは頭打ちしない内部の生スコア**で行うため、表示上100点で並んでも強さの順に正しく並びます
 
+**フェーズ15: Discord通知対応(通知上限なし)**
+- LINEに加えてDiscordのWebhook通知に対応。`DISCORD_WEBHOOK_URL` を設定すると、色付きのEmbedカードで通知(実質無制限・過去分の参照も快適)
+- LINE・Discordの両方、またはどちらか一方に送信可能。分析データは1回だけ取得して各媒体に描画(無駄な再取得なし)
+
 **フェーズ14: ファンダメンタルズ分析の拡充**
 - 従来のPER・PBR・ROE・増収増益に加え、**ROA(資産効率)・配当利回り(株主還元)・財務健全性(負債資本倍率・流動比率)**を総合スコアに反映
 - 流動比率1.0未満は「注意点」としても表示
@@ -131,9 +135,18 @@ python -m pytest
 
 | Secret名 | 内容 |
 | --- | --- |
-| `LINE_CHANNEL_ACCESS_TOKEN` | LINE Developersで発行したチャネルアクセストークン(長期) |
+| `LINE_CHANNEL_ACCESS_TOKEN` | (任意)LINE Developersのチャネルアクセストークン(長期) |
+| `DISCORD_WEBHOOK_URL` | (任意)Discordチャンネルの Webhook URL |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | ダウンロードしたサービスアカウントJSONキーの中身全体 |
 | `GOOGLE_SHEET_ID` | 保有銘柄スプレッドシートのID |
+
+通知先は **LINE と Discord のどちらか、または両方**に対応しています。設定した方(Secretを登録した方)に通知されます。
+
+**Discordを使う場合(通知数の上限なし・推奨)**
+1. Discordでサーバーを用意(なければ「サーバーを追加」で作成)
+2. 通知したいチャンネルの「⚙️ 編集」→「連携サービス」→「ウェブフック」→「新しいウェブフック」
+3. 「ウェブフックURLをコピー」して、その値を GitHub Secrets の `DISCORD_WEBHOOK_URL` に登録
+- LINEを併用しない場合は `LINE_CHANNEL_ACCESS_TOKEN` は未登録でOKです
 
 登録後は `.github/workflows/daily-report.yml` のcronで指定した時刻(**平日の 13:00・21:00 JST**)に自動実行されます。手動で試したい場合はGitHubの Actions タブから `workflow_dispatch` で即時実行できます。以降、保有銘柄を変更したい場合はスプレッドシートを直接編集するだけで、次回の自動実行に反映されます。
 
