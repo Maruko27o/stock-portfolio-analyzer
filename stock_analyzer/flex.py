@@ -122,6 +122,17 @@ def holding_bubble(summary: HoldingSummary) -> dict:
             _text(f"信頼度: 検証{st['count']:,}件(2023年以降・学習期間外)", size="xxs", color=MUTED)
         )
 
+    if summary.horizons and summary.current_price is not None:
+        body_contents.append(_sep())
+        body_contents.append(
+            _text(f"■ 期間別の期待値({summary.horizons[0]['band']}帯実績)", weight="bold", size="sm")
+        )
+        for h in summary.horizons:
+            implied = summary.current_price * (1 + h["expectancy"] / 100)
+            body_contents.append(
+                _kv_row(f"{h['days']}日後", f"{h['expectancy']:+.1f}% → {_price(implied)}")
+            )
+
     if summary.backtest:
         bt = summary.backtest
         body_contents.append(_sep())

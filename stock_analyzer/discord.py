@@ -80,6 +80,12 @@ def holding_embed(summary: HoldingSummary) -> dict:
         from stock_analyzer.backtest_stats import format_strategy_compact
 
         parts.append(f"**{format_strategy_compact(summary.strategy_stats)}**")
+    if summary.horizons and summary.current_price is not None:
+        horizon_parts = []
+        for h in summary.horizons:
+            implied = summary.current_price * (1 + h["expectancy"] / 100)
+            horizon_parts.append(f"{h['days']}日{h['expectancy']:+.1f}%({_price(implied)})")
+        parts.append(f"期間別期待値({summary.horizons[0]['band']}帯): " + " / ".join(horizon_parts))
     if summary.backtest:
         from stock_analyzer.backtest_stats import format_backtest_compact
 

@@ -82,6 +82,7 @@ class HoldingSummary:
     backtest: dict | None = None  # 保存済みバックテスト統計(該当スコア帯の実績)
     strategies_active: list = field(default_factory=list)  # 成立中の戦略タイプ
     strategy_stats: dict | None = None  # 主戦略の検証期間実績(保存済み統計から)
+    horizons: list = field(default_factory=list)  # 保有期間別のスコア帯実績
     reasons: list[str] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
 
@@ -588,6 +589,15 @@ def format_summary(summary: HoldingSummary) -> str:
         lines.append(f"■戦略: {st['strategy']}{scope}")
         lines.append(f"検証勝率：{st['win_rate']:.1f}%／期待値：{st['expectancy']:+.1f}%")
         lines.append(f"信頼度：検証{st['count']:,}件(学習期間外)")
+
+    if summary.horizons and summary.current_price is not None:
+        lines.append(DIVIDER)
+        lines.append(f"■期間別の期待値({summary.horizons[0]['band']}帯実績)")
+        for h in summary.horizons:
+            implied = summary.current_price * (1 + h["expectancy"] / 100)
+            lines.append(
+                f"{h['days']}日後：{h['expectancy']:+.1f}%(想定{_price(implied)}／勝率{h['win_rate']:.0f}%)"
+            )
 
     if summary.backtest:
         from stock_analyzer.backtest_stats import format_backtest_lines

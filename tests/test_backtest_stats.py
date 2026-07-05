@@ -93,6 +93,29 @@ def test_format_strategy_compact():
     assert "n=5,000" in text
 
 
+FAKE_HORIZON_STATS = {
+    "metadata": {"min_band_count": 30},
+    "adopted": {"bands": {}},
+    "rules": {
+        "5営業日後売却": {"bands": {"75-79": {"count": 900, "expectancy": 0.4, "win_rate": 54.0}}},
+        "10営業日後売却": {"bands": {"75-79": {"count": 900, "expectancy": 0.5, "win_rate": 53.5}}},
+        "20営業日後売却": {"bands": {"75-79": {"count": 900, "expectancy": 0.9, "win_rate": 55.0}}},
+        "30営業日後売却": {"bands": {"75-79": {"count": 10, "expectancy": 9.9, "win_rate": 99.0}}},
+    },
+}
+
+
+def test_horizon_expectations_returns_periods_with_enough_samples():
+    from stock_analyzer.backtest_stats import horizon_expectations
+
+    result = horizon_expectations(FAKE_HORIZON_STATS, 77)
+    assert [h["days"] for h in result] == [5, 10, 20]  # 30日は件数不足で除外
+    assert result[0] == {"days": 5, "expectancy": 0.4, "win_rate": 54.0, "band": "75-79"}
+    assert horizon_expectations(FAKE_HORIZON_STATS, None) == []
+    assert horizon_expectations(None, 77) == []
+    assert horizon_expectations(FAKE_HORIZON_STATS, 30) == []  # 帯データなし
+
+
 def test_format_backtest_outputs_required_metrics():
     entry = stats_for_score(FAKE_STATS, 92)
     compact = format_backtest_compact(entry)
