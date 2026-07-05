@@ -8,7 +8,6 @@ from stock_analyzer.flex import RATING_COLOR, SENTIMENT_COLOR
 from stock_analyzer.market import vix_regime_label
 from stock_analyzer.summary import (
     RATING_EMOJI,
-    RATING_LABEL,
     HoldingSummary,
     format_as_of,
     format_dividend_yield,
@@ -71,23 +70,19 @@ def holding_embed(summary: HoldingSummary) -> dict:
     )
     parts = [
         position_line,
-        dividend_line,
+        dividend_line + " ※権利落ち日まで保有で配当受取。売却は権利後が基本",
         f"**判断**: {summary.action}",
-        f"第一目標: {_price(summary.take_profit)} / 損切: {_price(summary.stop_loss)}"
-        + (f" / 押し目: {_price(summary.add_price)}" if summary.add_price is not None else ""),
+        f"損切: {_price(summary.stop_loss)} / 目標: {_price(summary.take_profit)}"
+        + (f" / 押し目: {_price(summary.add_price)}" if summary.add_price is not None else "")
+        + " ※損切は値動き幅(ATR)基準。終値割れで売却検討",
     ]
     if summary.strategy_stats:
         from stock_analyzer.backtest_stats import format_strategy_compact
 
         parts.append(f"**{format_strategy_compact(summary.strategy_stats)}**")
+        parts.append("※銘柄の優劣でなく「買い時の型」の検知。下落・横ばい相場で特に有効")
     if summary.horizons and summary.current_price is not None:
         price = summary.current_price
-        horizon_parts = []
-        for h in summary.horizons:
-            implied = price * (1 + h["expectancy"] / 100)
-            horizon_parts.append(f"{h['days']}日{h['expectancy']:+.1f}%({_price(implied)})")
-        parts.append(f"期間別期待値({summary.horizons[0]['band']}帯): " + " / ".join(horizon_parts))
-
         detail = summary.horizons[-1]
         if "p25" in detail:
             rng = lambda lo, hi: (  # noqa: E731
@@ -95,23 +90,18 @@ def holding_embed(summary: HoldingSummary) -> dict:
             )
             parts.append(
                 f"**{detail['days']}日後の見通し**(信頼度{detail['stars']}): "
-                f"期待{_price(price * (1 + detail['expectancy'] / 100))}"
+                f"期待{_price(price * (1 + detail['expectancy'] / 100))}({detail['expectancy']:+.1f}%)"
                 f" / 50%レンジ{rng('p25', 'p75')} / 80%レンジ{rng('p10', 'p90')}"
                 f" / +5%以上{detail['prob_up_5']:.0f}% / -5%以下{detail['prob_down_5']:.0f}%"
-                f" / 過去最大+{detail['max_win']:.1f}%〜{detail['max_loss']:.1f}%"
+                " ※期待値の1点よりレンジを重視。レンジ外もあり得る"
             )
-    if summary.backtest:
-        from stock_analyzer.backtest_stats import format_backtest_compact
-
-        parts.append(format_backtest_compact(summary.backtest))
     if summary.reasons:
-        parts.append("**判断理由**\n" + "\n".join(f"・{r}" for r in summary.reasons))
+        parts.append("**判断理由**\n" + "\n".join(f"・{r}" for r in summary.reasons[:3]))
     if summary.risks:
         parts.append("**注意点**\n" + "\n".join(f"・{r}" for r in summary.risks))
 
     return {
-        "title": f"{RATING_EMOJI[summary.rating]} {heading} — {summary.rating} {summary.score}点"
-        f"（{RATING_LABEL[summary.rating]}）",
+        "title": f"{RATING_EMOJI[summary.rating]} {heading} — {summary.action}",
         "description": "\n".join(parts),
         "color": _color_int(RATING_COLOR[summary.rating]),
     }
