@@ -48,6 +48,25 @@ def test_holding_embed_hides_cost_for_watch_only_symbols():
     assert "損益" not in embed["description"]
 
 
+def test_holding_embed_always_shows_dividend_line():
+    from datetime import date
+
+    embed = holding_embed(
+        _summary(
+            dividend_yield=4.24,
+            yield_on_cost=4.87,
+            ex_dividend_date=date(2026, 7, 30),
+            days_to_ex_dividend=25,
+        )
+    )
+    assert "配当: 4.24%(取得比4.87%)" in embed["description"]
+    assert "権利落ち: 2026/7/30(あと25日)" in embed["description"]
+
+    bare = holding_embed(_summary())
+    assert "配当: —" in bare["description"]
+    assert "権利落ち: データ不足" in bare["description"]
+
+
 def test_market_embed_lists_changes():
     embed = market_embed("強気", {"日経平均": (39000.0, 1.2)})
     assert "強気" in embed["title"]

@@ -89,6 +89,24 @@ def test_decide_action_varies_by_rating_and_profit():
     assert decide_action("×", profit_pct=-8) == "損切推奨"
 
 
+def test_decide_action_defers_selling_while_dividend_right_is_pending():
+    kwargs = dict(days_to_ex_dividend=25, dividend_rate=146.0)
+    assert decide_action("×", profit_pct=-8, **kwargs) == "配当権利(あと25日)まで保有→権利後に損切検討"
+    assert decide_action("×", profit_pct=8, **kwargs) == "配当権利落ち(あと25日)後に利益確定推奨"
+    assert decide_action("▲", profit_pct=10, **kwargs) == "配当権利落ち(あと25日)後に一部利確検討"
+    # Buy-leaning advice is unchanged.
+    assert decide_action("◎◎", profit_pct=5, **kwargs) == "追加購入検討"
+
+
+def test_decide_action_ignores_dividend_outside_window_or_without_dividend():
+    # Ex-dividend too far away (over DIVIDEND_HOLD_WINDOW_DAYS).
+    assert decide_action("×", profit_pct=-8, days_to_ex_dividend=90, dividend_rate=146.0) == "損切推奨"
+    # Already past (0 = today, right already secured).
+    assert decide_action("×", profit_pct=-8, days_to_ex_dividend=0, dividend_rate=146.0) == "損切推奨"
+    # No dividend at all.
+    assert decide_action("×", profit_pct=-8, days_to_ex_dividend=10, dividend_rate=None) == "損切推奨"
+
+
 def test_compute_targets_uses_levels_when_available():
     analysis = _analysis()
     take_profit, stop_loss, add_price = compute_targets(analysis, rating="◎")
@@ -128,6 +146,62 @@ def test_format_summary_contains_key_sections():
     assert "AI評価" in text
     assert "■判断" in text
     assert "■判断理由" in text
+
+
+def test_build_summary_carries_dividend_fields_and_signal():
+    from datetime import date, timedelta
+
+    ex_date = date.today() + timedelta(days=25)
+    summary = build_summary(
+        _analysis(
+            dividend_yield=4.24,
+            dividend_rate=146.0,
+            ex_dividend_date=ex_date,
+            days_to_ex_dividend=25,
+        ),
+        market_sentiment="強気",
+    )
+    assert summary.dividend_yield == 4.24
+    assert summary.yield_on_cost == 146.0 / 3000.0 * 100  # against avg_cost, not price
+    assert summary.ex_dividend_date == ex_date
+    assert summary.days_to_ex_dividend == 25
+
+    from stock_analyzer.summary import build_signals
+
+    signals = build_signals(
+        _analysis(dividend_yield=4.24, dividend_rate=146.0, days_to_ex_dividend=25),
+        market_sentiment="強気",
+    )
+    assert any("配当権利落ちまであと25日(利回り4.2%)" == s.reason for s in signals)
+
+
+def test_yield_on_cost_none_for_watch_only_holding():
+    analysis = _analysis(
+        holding=Holding(symbol="1928.T", quantity=0, avg_cost=0.0), dividend_rate=146.0
+    )
+    assert analysis.yield_on_cost is None
+
+
+def test_format_summary_always_shows_dividend_lines():
+    summary = build_summary(_analysis(), market_sentiment="強気")
+    text = format_summary(summary)
+    assert "配当利回り：" in text
+    assert "権利落ち日：データ不足" in text
+
+    from datetime import date
+
+    summary_with = build_summary(
+        _analysis(
+            dividend_yield=4.24,
+            dividend_rate=146.0,
+            ex_dividend_date=date(2026, 7, 30),
+            days_to_ex_dividend=25,
+        ),
+        market_sentiment="強気",
+    )
+    text_with = format_summary(summary_with)
+    assert "配当利回り：4.24%(取得比4.87%)" in text_with
+    assert "権利落ち日：2026/7/30(あと25日)" in text_with
 
 
 def test_format_summary_prepends_rating_emoji():

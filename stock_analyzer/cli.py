@@ -28,7 +28,12 @@ from stock_analyzer.market import evaluate_market_sentiment, fetch_market_snapsh
 from stock_analyzer.portfolio import Holding, load_portfolio
 from stock_analyzer.screener import build_swing_section, top_swing_picks
 from stock_analyzer.scoring import evaluate_recommendation, total_score
-from stock_analyzer.summary import build_summary, format_market_header, format_summary
+from stock_analyzer.summary import (
+    build_summary,
+    format_ex_dividend,
+    format_market_header,
+    format_summary,
+)
 
 
 def _fmt(value: float | None, spec: str = "{:.2f}") -> str:
@@ -63,6 +68,8 @@ def _build_detailed_block(a: HoldingAnalysis) -> list[str]:
         f"/ 利益成長率: {_pct(a.earnings_growth, '{:+.1f}%')}({evaluate_growth(a.earnings_growth, '増益', '減益')})",
         f"配当利回り: {_fmt(a.dividend_yield, '{:.2f}%')}({evaluate_dividend_yield(a.dividend_yield)}) "
         f"/ 配当性向: {_pct(a.payout_ratio)}({evaluate_payout_ratio(a.payout_ratio)})",
+        f"取得比利回り: {_fmt(a.yield_on_cost, '{:.2f}%')} "
+        f"/ 権利落ち日: {format_ex_dividend(a.ex_dividend_date, a.days_to_ex_dividend)}",
         f"負債資本倍率: {_fmt(a.debt_to_equity, '{:.0f}%')}({evaluate_debt_to_equity(a.debt_to_equity)}) "
         f"/ 流動比率: {_fmt(a.current_ratio, '{:.2f}')}({evaluate_current_ratio(a.current_ratio)})",
         f"次回決算日: {a.next_earnings.isoformat() if a.next_earnings else 'データ不足'}"
