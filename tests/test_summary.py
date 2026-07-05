@@ -68,6 +68,63 @@ def test_score_from_signals_clamps_and_sums():
     assert score_from_signals([Signal(-100, "big")]) == 0
 
 
+def test_score_caps_each_category():
+    # Three +10 technical signals stack to 30 but are capped at 20.
+    tech = [Signal(10, "t1", "technical"), Signal(10, "t2", "technical"), Signal(10, "t3", "technical")]
+    assert score_from_signals(tech) == 70
+    # Caps are per category: technical 20 + fundamental 18 = 88.
+    mixed = tech + [Signal(30, "f", "fundamental")]
+    assert score_from_signals(mixed) == 88
+    # Negative side is capped symmetrically.
+    bear = [Signal(-15, "t1", "technical"), Signal(-15, "t2", "technical")]
+    assert score_from_signals(bear) == 30
+
+
+def test_build_signals_uses_sector_thresholds():
+    from stock_analyzer.summary import build_signals
+
+    # PER 12 is cheap for the default sector (threshold 15)…
+    default_sector = build_signals(_analysis(per=12.0), market_sentiment="中立")
+    assert any("PER12.0で割安" in s.reason for s in default_sector)
+
+    # …but expensive for a bank (threshold 10).
+    bank = build_signals(_analysis(per=12.0, sector="Financial Services"), market_sentiment="中立")
+    assert any("PER割高(セクター基準10)" in s.reason for s in bank)
+
+    # Tech sector tolerates PER 20 (threshold 25).
+    tech = build_signals(_analysis(per=20.0, sector="Technology"), market_sentiment="中立")
+    assert any("PER20.0で割安(セクター基準25)" in s.reason for s in tech)
+
+
+def test_build_signals_prefers_forward_per():
+    from stock_analyzer.summary import build_signals
+
+    signals = build_signals(_analysis(per=30.0, forward_per=8.0), market_sentiment="中立")
+    assert any("予想PER8.0で割安" in s.reason for s in signals)
+
+
+def test_build_signals_vix_regimes():
+    from stock_analyzer.summary import build_signals
+
+    risk_off = build_signals(_analysis(), market_sentiment="中立", vix=32.0)
+    assert any("リスクオフ" in s.reason and s.points < 0 for s in risk_off)
+
+    calm = build_signals(_analysis(), market_sentiment="中立", vix=13.0)
+    assert any("安定" in s.reason and s.points > 0 for s in calm)
+
+
+def test_build_signals_relative_strength_vs_benchmark():
+    from stock_analyzer.summary import build_signals
+
+    # Stock +10% while market +2% → own strength.
+    strong = build_signals(_analysis(momentum=10.0), market_sentiment="中立", benchmark_momentum=2.0)
+    assert any("市場平均より強い(+8%)" in s.reason for s in strong)
+
+    # Stock flat while market +8% → lagging the tide.
+    weak = build_signals(_analysis(momentum=0.0), market_sentiment="中立", benchmark_momentum=8.0)
+    assert any("市場平均より弱い(-8%)" in s.reason for s in weak)
+
+
 def test_select_reasons_picks_matching_direction_by_magnitude():
     signals = [Signal(10, "強い買い"), Signal(4, "弱い買い"), Signal(-3, "弱い売り")]
     reasons = select_reasons(signals, score=70, limit=5)
@@ -118,6 +175,25 @@ def test_compute_targets_uses_levels_when_available():
 def test_compute_targets_add_price_none_for_sell_rating():
     _, _, add_price = compute_targets(_analysis(), rating="×")
     assert add_price is None
+
+
+def test_compute_targets_scales_with_atr():
+    # No levels: pure ATR sizing (3 ATR target / 2 ATR stop / 1.5 ATR dip).
+    analysis = _analysis(levels=None, sma_mid=None, atr=50.0)
+    take_profit, stop_loss, add_price = compute_targets(analysis, rating="◎")
+    assert take_profit == 3500.0 + 150.0
+    assert stop_loss == 3500.0 - 100.0
+    assert add_price == 3500.0 - 75.0
+
+
+def test_compute_targets_replaces_levels_too_far_in_atr_terms():
+    from stock_analyzer.indicators import SupportResistance
+
+    # Support 3200 is 6 ATR away for a calm stock (ATR 50) → use 2 ATR stop instead.
+    analysis = _analysis(levels=SupportResistance(support=3200.0, resistance=3700.0), atr=50.0)
+    take_profit, stop_loss, _ = compute_targets(analysis, rating="◎")
+    assert stop_loss == 3500.0 - 100.0
+    assert take_profit == 3700.0  # resistance is within 6 ATR (200 <= 300), kept
 
 
 def test_detect_risks_flags_earnings_and_overheating():

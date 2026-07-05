@@ -17,6 +17,46 @@ class Signal:
 
     points: int
     reason: str
+    category: str = "other"
+
+
+# Per-category score caps. Trend indicators (SMA alignment, MACD, momentum…) all
+# measure much the same thing and would otherwise stack to ±30+ in a trending
+# market, drowning out fundamentals. Capping each category keeps one aspect from
+# dominating the 0-100 score.
+CATEGORY_CAPS = {"technical": 20, "fundamental": 18, "dividend": 6, "market": 8}
+
+# Sector-typical valuation baselines (yfinance sector names). Banks trade at
+# PER<10/PBR<0.7 in normal times while growth sectors run far higher, so a flat
+# PER15/PBR1 cutoff mislabels both.
+SECTOR_PER_THRESHOLD = {
+    "Financial Services": 10,
+    "Energy": 10,
+    "Utilities": 12,
+    "Basic Materials": 12,
+    "Real Estate": 12,
+    "Industrials": 15,
+    "Consumer Cyclical": 15,
+    "Consumer Defensive": 18,
+    "Communication Services": 18,
+    "Healthcare": 22,
+    "Technology": 25,
+}
+DEFAULT_PER_THRESHOLD = 15
+SECTOR_PBR_THRESHOLD = {
+    "Financial Services": 0.7,
+    "Energy": 0.8,
+    "Utilities": 0.8,
+    "Basic Materials": 1.0,
+    "Real Estate": 1.2,
+    "Industrials": 1.3,
+    "Consumer Cyclical": 1.3,
+    "Consumer Defensive": 1.8,
+    "Communication Services": 1.8,
+    "Healthcare": 2.5,
+    "Technology": 3.0,
+}
+DEFAULT_PBR_THRESHOLD = 1.0
 
 
 @dataclass
@@ -45,86 +85,149 @@ def _clamp(value: int, low: int = 0, high: int = 100) -> int:
     return max(low, min(high, value))
 
 
-def build_signals(analysis: HoldingAnalysis, market_sentiment: str) -> list[Signal]:
-    """Turn the raw analysis into a list of weighted, labelled signals."""
+def build_signals(
+    analysis: HoldingAnalysis,
+    market_sentiment: str,
+    vix: float | None = None,
+    benchmark_momentum: float | None = None,
+) -> list[Signal]:
+    """Turn the raw analysis into a list of weighted, labelled signals.
+
+    `benchmark_momentum` is the market benchmark's 10-day rate of change, used to
+    tell a stock's own strength apart from a rising tide.
+    """
     signals: list[Signal] = []
     price = analysis.current_price
 
     # --- Technical ---
     if price is not None and analysis.sma_mid is not None:
         if price > analysis.sma_mid:
-            signals.append(Signal(8, "25日線を上抜け"))
+            signals.append(Signal(8, "25日線を上抜け", "technical"))
         else:
-            signals.append(Signal(-8, "25日線を下回る"))
+            signals.append(Signal(-8, "25日線を下回る", "technical"))
 
     if analysis.sma_short is not None and analysis.sma_mid is not None and analysis.sma_long is not None:
         if analysis.sma_short > analysis.sma_mid > analysis.sma_long:
-            signals.append(Signal(5, "移動平均線が上昇配列"))
+            signals.append(Signal(5, "移動平均線が上昇配列", "technical"))
         elif analysis.sma_short < analysis.sma_mid < analysis.sma_long:
-            signals.append(Signal(-5, "移動平均線が下降配列"))
+            signals.append(Signal(-5, "移動平均線が下降配列", "technical"))
 
     macd_signal = evaluate_macd(analysis.macd_result)
     if macd_signal == "ゴールデンクロス":
-        signals.append(Signal(10, "MACDゴールデンクロス"))
+        signals.append(Signal(10, "MACDゴールデンクロス", "technical"))
     elif macd_signal == "デッドクロス":
-        signals.append(Signal(-10, "MACDデッドクロス"))
+        signals.append(Signal(-10, "MACDデッドクロス", "technical"))
     elif macd_signal == "上昇中":
-        signals.append(Signal(4, "MACD上昇中"))
+        signals.append(Signal(4, "MACD上昇中", "technical"))
     elif macd_signal == "下降中":
-        signals.append(Signal(-4, "MACD下降中"))
+        signals.append(Signal(-4, "MACD下降中", "technical"))
 
     if analysis.rsi is not None:
         if analysis.rsi <= 30:
-            signals.append(Signal(8, f"RSI{analysis.rsi:.0f}で売られすぎ(反発期待)"))
+            signals.append(Signal(8, f"RSI{analysis.rsi:.0f}で売られすぎ(反発期待)", "technical"))
         elif analysis.rsi >= 70:
-            signals.append(Signal(-8, f"RSI{analysis.rsi:.0f}で買われすぎ"))
+            signals.append(Signal(-8, f"RSI{analysis.rsi:.0f}で買われすぎ", "technical"))
 
     if "強い上昇" in analysis.volume_price_signal:
-        signals.append(Signal(6, "出来高増加を伴う上昇"))
+        signals.append(Signal(6, "出来高増加を伴う上昇", "technical"))
     elif "勢い弱い" in analysis.volume_price_signal:
-        signals.append(Signal(-2, "上昇も出来高が細る"))
+        signals.append(Signal(-2, "上昇も出来高が細る", "technical"))
     elif "強い下落" in analysis.volume_price_signal:
-        signals.append(Signal(-6, "出来高増加を伴う下落"))
+        signals.append(Signal(-6, "出来高増加を伴う下落", "technical"))
     elif "下げ渋り" in analysis.volume_price_signal:
-        signals.append(Signal(2, "下落だが出来高は減少"))
+        signals.append(Signal(2, "下落だが出来高は減少", "technical"))
 
     if analysis.levels is not None and price is not None:
         if price >= analysis.levels.resistance:
-            signals.append(Signal(5, "レジスタンスを突破"))
+            signals.append(Signal(5, "レジスタンスを突破", "technical"))
         elif price <= analysis.levels.support:
-            signals.append(Signal(-5, "サポートを割れ"))
+            signals.append(Signal(-5, "サポートを割れ", "technical"))
 
     if analysis.bollinger is not None:
         if analysis.bollinger >= 2:
-            signals.append(Signal(-3, "ボリンジャーバンド上限で過熱"))
+            signals.append(Signal(-3, "ボリンジャーバンド上限で過熱", "technical"))
         elif analysis.bollinger <= -2:
-            signals.append(Signal(3, "ボリンジャーバンド下限で反発期待"))
+            signals.append(Signal(3, "ボリンジャーバンド下限で反発期待", "technical"))
 
     if analysis.momentum is not None:
         if analysis.momentum >= 10:
-            signals.append(Signal(6, f"直近10日で+{analysis.momentum:.0f}%の強い上昇"))
+            signals.append(Signal(6, f"直近10日で+{analysis.momentum:.0f}%の強い上昇", "technical"))
         elif analysis.momentum >= 3:
-            signals.append(Signal(3, f"直近10日で+{analysis.momentum:.0f}%上昇"))
+            signals.append(Signal(3, f"直近10日で+{analysis.momentum:.0f}%上昇", "technical"))
         elif analysis.momentum <= -10:
-            signals.append(Signal(-6, f"直近10日で{analysis.momentum:.0f}%下落"))
+            signals.append(Signal(-6, f"直近10日で{analysis.momentum:.0f}%下落", "technical"))
         elif analysis.momentum <= -3:
-            signals.append(Signal(-3, "直近10日で下落"))
+            signals.append(Signal(-3, "直近10日で下落", "technical"))
+
+    # Own strength vs the market: a rise that just tracks the index is tide, not skill.
+    if analysis.momentum is not None and benchmark_momentum is not None:
+        relative = analysis.momentum - benchmark_momentum
+        if relative >= 5:
+            signals.append(Signal(4, f"市場平均より強い(+{relative:.0f}%)", "technical"))
+        elif relative <= -5:
+            signals.append(Signal(-4, f"市場平均より弱い({relative:.0f}%)", "technical"))
 
     # --- Fundamental ---
-    if analysis.per is not None:
-        signals.append(Signal(6, "PER割安") if analysis.per <= 15 else Signal(-3, "PER割高"))
+    per_threshold = SECTOR_PER_THRESHOLD.get(analysis.sector, DEFAULT_PER_THRESHOLD)
+    per_value = analysis.forward_per if analysis.forward_per is not None else analysis.per
+    per_label = "予想PER" if analysis.forward_per is not None else "PER"
+    if per_value is not None:
+        if per_value <= 0:
+            signals.append(Signal(-4, f"{per_label}マイナス(赤字)", "fundamental"))
+        elif per_value <= per_threshold:
+            signals.append(
+                Signal(6, f"{per_label}{per_value:.1f}で割安(セクター基準{per_threshold})", "fundamental")
+            )
+        else:
+            signals.append(Signal(-3, f"{per_label}割高(セクター基準{per_threshold})", "fundamental"))
+
+    pbr_threshold = SECTOR_PBR_THRESHOLD.get(analysis.sector, DEFAULT_PBR_THRESHOLD)
     if analysis.pbr is not None:
-        signals.append(Signal(5, "PBR割安") if analysis.pbr <= 1 else Signal(-2, "PBR割高"))
+        if analysis.pbr <= pbr_threshold:
+            signals.append(
+                Signal(5, f"PBR{analysis.pbr:.1f}で割安(セクター基準{pbr_threshold})", "fundamental")
+            )
+        else:
+            signals.append(Signal(-2, f"PBR割高(セクター基準{pbr_threshold})", "fundamental"))
+
     if analysis.roe is not None:
-        signals.append(Signal(6, "ROE良好") if analysis.roe >= 0.08 else Signal(-2, "ROEが低い"))
+        signals.append(
+            Signal(6, "ROE良好", "fundamental")
+            if analysis.roe >= 0.08
+            else Signal(-2, "ROEが低い", "fundamental")
+        )
     if analysis.roa is not None:
-        signals.append(Signal(5, "ROA良好") if analysis.roa >= 0.05 else Signal(-2, "ROAが低い"))
+        signals.append(
+            Signal(5, "ROA良好", "fundamental")
+            if analysis.roa >= 0.05
+            else Signal(-2, "ROAが低い", "fundamental")
+        )
     if analysis.revenue_growth is not None:
-        signals.append(Signal(4, "増収") if analysis.revenue_growth > 0 else Signal(-4, "減収"))
+        signals.append(
+            Signal(4, "増収", "fundamental")
+            if analysis.revenue_growth > 0
+            else Signal(-4, "減収", "fundamental")
+        )
     if analysis.earnings_growth is not None:
-        signals.append(Signal(5, "増益") if analysis.earnings_growth > 0 else Signal(-5, "減益"))
+        signals.append(
+            Signal(5, "増益", "fundamental")
+            if analysis.earnings_growth > 0
+            else Signal(-5, "減益", "fundamental")
+        )
+    if analysis.debt_to_equity is not None:
+        if analysis.debt_to_equity <= 100:
+            signals.append(Signal(3, "財務健全(低負債)", "fundamental"))
+        elif analysis.debt_to_equity >= 200:
+            signals.append(Signal(-3, "負債が多い", "fundamental"))
+    if analysis.current_ratio is not None:
+        if analysis.current_ratio >= 1.5:
+            signals.append(Signal(2, "短期の支払い余力あり", "fundamental"))
+        elif analysis.current_ratio < 1.0:
+            signals.append(Signal(-3, "短期の支払い能力に注意", "fundamental"))
+
+    # --- Dividend ---
     if analysis.dividend_yield is not None and analysis.dividend_yield >= 3.0:
-        signals.append(Signal(3, f"高配当利回り{analysis.dividend_yield:.1f}%"))
+        signals.append(Signal(3, f"高配当利回り{analysis.dividend_yield:.1f}%", "dividend"))
     if (
         analysis.days_to_ex_dividend is not None
         and 1 <= analysis.days_to_ex_dividend <= DIVIDEND_HOLD_WINDOW_DAYS
@@ -133,29 +236,40 @@ def build_signals(analysis: HoldingAnalysis, market_sentiment: str) -> list[Sign
         label = f"配当権利落ちまであと{analysis.days_to_ex_dividend}日"
         if analysis.dividend_yield is not None:
             label += f"(利回り{analysis.dividend_yield:.1f}%)"
-        signals.append(Signal(4, label))
-    if analysis.debt_to_equity is not None:
-        if analysis.debt_to_equity <= 100:
-            signals.append(Signal(3, "財務健全(低負債)"))
-        elif analysis.debt_to_equity >= 200:
-            signals.append(Signal(-3, "負債が多い"))
-    if analysis.current_ratio is not None:
-        if analysis.current_ratio >= 1.5:
-            signals.append(Signal(2, "短期の支払い余力あり"))
-        elif analysis.current_ratio < 1.0:
-            signals.append(Signal(-3, "短期の支払い能力に注意"))
+        signals.append(Signal(4, label, "dividend"))
 
     # --- Market ---
     if market_sentiment == "強気":
-        signals.append(Signal(5, "市場全体が上昇基調"))
+        signals.append(Signal(5, "市場全体が上昇基調", "market"))
     elif market_sentiment == "弱気":
-        signals.append(Signal(-5, "市場全体が下落基調"))
+        signals.append(Signal(-5, "市場全体が下落基調", "market"))
+
+    if vix is not None:
+        if vix >= 30:
+            signals.append(Signal(-8, f"VIX{vix:.0f}でリスクオフ(買い抑制)", "market"))
+        elif vix >= 25:
+            signals.append(Signal(-4, f"VIX{vix:.0f}で警戒水準", "market"))
+        elif vix <= 15:
+            signals.append(Signal(2, f"VIX{vix:.0f}で市場は安定", "market"))
 
     return signals
 
 
+def _capped_total(signals: list[Signal]) -> int:
+    """Sum signal points with each category clamped to its cap (uncategorized: uncapped)."""
+    per_category: dict[str, int] = {}
+    for signal in signals:
+        per_category[signal.category] = per_category.get(signal.category, 0) + signal.points
+
+    total = 0
+    for category, points in per_category.items():
+        cap = CATEGORY_CAPS.get(category)
+        total += max(-cap, min(cap, points)) if cap else points
+    return total
+
+
 def score_from_signals(signals: list[Signal]) -> int:
-    return _clamp(50 + sum(s.points for s in signals))
+    return _clamp(50 + _capped_total(signals))
 
 
 def rating_from_score(score: int) -> str:
@@ -242,27 +356,41 @@ def decide_action(
 def compute_targets(
     analysis: HoldingAnalysis, rating: str
 ) -> tuple[float | None, float | None, float | None]:
-    """Return (take_profit, stop_loss, add_price)."""
+    """Return (take_profit, stop_loss, add_price).
+
+    Distances are sized in ATR units (each stock's own daily range) so a calm
+    large-cap and a volatile small-cap get appropriately different lines; the
+    flat ±% values remain only as a fallback when ATR is unavailable.
+    Support/resistance levels are still preferred, but a level absurdly far
+    away in ATR terms is replaced by the ATR-based line.
+    """
     price = analysis.current_price
     if price is None:
         return None, None, None
+    atr = analysis.atr
 
+    take_profit = None
     if analysis.levels is not None and analysis.levels.resistance > price:
         take_profit = analysis.levels.resistance
-    else:
-        take_profit = price * 1.10
+        if atr and take_profit > price + 6 * atr:
+            take_profit = price + 3 * atr
+    if take_profit is None:
+        take_profit = price + 3 * atr if atr else price * 1.10
 
+    stop_loss = None
     if analysis.levels is not None and analysis.levels.support < price:
         stop_loss = analysis.levels.support
-    else:
-        stop_loss = price * 0.93
+        if atr and stop_loss < price - 4 * atr:
+            stop_loss = price - 2 * atr
+    if stop_loss is None:
+        stop_loss = price - 2 * atr if atr else price * 0.93
 
     add_price = None
     if rating in ("◎◎", "◎", "○"):
         if analysis.sma_mid is not None and analysis.sma_mid < price:
             add_price = analysis.sma_mid
         else:
-            add_price = price * 0.97
+            add_price = price - 1.5 * atr if atr else price * 0.97
 
     return take_profit, stop_loss, add_price
 
@@ -292,9 +420,14 @@ def detect_risks(analysis: HoldingAnalysis) -> list[str]:
     return risks
 
 
-def build_summary(analysis: HoldingAnalysis, market_sentiment: str) -> HoldingSummary:
-    signals = build_signals(analysis, market_sentiment)
-    raw_score = 50 + sum(s.points for s in signals)
+def build_summary(
+    analysis: HoldingAnalysis,
+    market_sentiment: str,
+    vix: float | None = None,
+    benchmark_momentum: float | None = None,
+) -> HoldingSummary:
+    signals = build_signals(analysis, market_sentiment, vix, benchmark_momentum)
+    raw_score = 50 + _capped_total(signals)
     score = _clamp(raw_score)
     rating = rating_from_score(score)
     take_profit, stop_loss, add_price = compute_targets(analysis, rating)

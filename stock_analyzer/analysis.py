@@ -12,6 +12,7 @@ from stock_analyzer.data_fetcher import (
 from stock_analyzer.indicators import (
     MACDResult,
     SupportResistance,
+    average_true_range,
     bollinger_sigma,
     evaluate_volume,
     evaluate_volume_price,
@@ -70,6 +71,8 @@ class HoldingAnalysis:
     dividend_rate: float | None = None  # annual dividend per share (currency)
     ex_dividend_date: date | None = None
     days_to_ex_dividend: int | None = None
+    forward_per: float | None = None  # analyst-estimate PER; preferred over trailing
+    atr: float | None = None  # average true range (volatility unit for targets)
 
     @property
     def profit_pct(self) -> float | None:
@@ -140,4 +143,6 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
         dividend_rate=fundamentals["dividend_rate"],
         ex_dividend_date=ex_dividend_date,
         days_to_ex_dividend=days_to_ex_dividend,
+        forward_per=fundamentals["forward_per"],
+        atr=average_true_range(highs, lows, closes),
     )

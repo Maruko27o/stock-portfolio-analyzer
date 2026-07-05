@@ -37,9 +37,12 @@ def test_generate_flex_skips_failed_holdings_and_notes_them():
     with patch("stock_analyzer.cli.time.sleep"), patch(
         "stock_analyzer.cli.fetch_market_snapshot", return_value={"日経平均": (1.0, 1.0)}
     ), patch("stock_analyzer.cli.evaluate_market_sentiment", return_value="強気"), patch(
+        "stock_analyzer.cli._benchmark_momentum", return_value=None
+    ), patch(
         "stock_analyzer.cli.analyze_holding", side_effect=fake_analyze
     ), patch(
-        "stock_analyzer.cli.build_summary", side_effect=lambda a, s: _summary(a.symbol, 60)
+        "stock_analyzer.cli.build_summary",
+        side_effect=lambda a, s, *rest: _summary(a.symbol, 60),
     ), patch("stock_analyzer.cli.top_swing_picks", return_value=[]):
         messages = generate_flex_messages(holdings)
 
@@ -53,9 +56,12 @@ def test_generate_flex_survives_market_failure():
     holdings = [Holding("AAA", 1, 100)]
 
     with patch("stock_analyzer.cli.fetch_market_snapshot", side_effect=RuntimeError("boom")), patch(
+        "stock_analyzer.cli._benchmark_momentum", return_value=None
+    ), patch(
         "stock_analyzer.cli.analyze_holding", side_effect=lambda h: h
     ), patch(
-        "stock_analyzer.cli.build_summary", side_effect=lambda a, s: _summary(a.symbol, 60)
+        "stock_analyzer.cli.build_summary",
+        side_effect=lambda a, s, *rest: _summary(a.symbol, 60),
     ), patch("stock_analyzer.cli.top_swing_picks", return_value=[]):
         messages = generate_flex_messages(holdings)
 
@@ -67,7 +73,9 @@ def test_generate_flex_raises_when_everything_fails():
 
     with patch("stock_analyzer.cli.time.sleep"), patch(
         "stock_analyzer.cli.fetch_market_snapshot", side_effect=RuntimeError("boom")
-    ), patch("stock_analyzer.cli.analyze_holding", side_effect=RuntimeError("rate limited")), patch(
+    ), patch("stock_analyzer.cli._benchmark_momentum", return_value=None), patch(
+        "stock_analyzer.cli.analyze_holding", side_effect=RuntimeError("rate limited")
+    ), patch(
         "stock_analyzer.cli.top_swing_picks", return_value=[]
     ):
         with pytest.raises(RuntimeError):

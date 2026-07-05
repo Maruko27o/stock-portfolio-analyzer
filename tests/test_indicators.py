@@ -1,5 +1,6 @@
 from stock_analyzer.indicators import (
     SupportResistance,
+    average_true_range,
     bollinger_sigma,
     evaluate_bollinger,
     evaluate_macd,
@@ -14,6 +15,29 @@ from stock_analyzer.indicators import (
     support_resistance,
     volume_trend,
 )
+
+
+def test_average_true_range_uses_range_and_gaps():
+    # Flat 10-point daily ranges, no gaps → ATR is exactly 10.
+    n = 20
+    highs = [110.0] * n
+    lows = [100.0] * n
+    closes = [105.0] * n
+    assert average_true_range(highs, lows, closes, period=14) == 10.0
+
+
+def test_average_true_range_counts_gap_over_prior_close():
+    # A gap up beyond the day's own range widens the true range.
+    highs = [110.0] * 15 + [130.0]
+    lows = [100.0] * 15 + [125.0]
+    closes = [105.0] * 15 + [128.0]
+    atr = average_true_range(highs, lows, closes, period=14)
+    # 13 normal days (TR 10) + gap day (TR = 130 - 105 = 25) averaged over 14.
+    assert atr == (13 * 10.0 + 25.0) / 14
+
+
+def test_average_true_range_needs_enough_data():
+    assert average_true_range([1.0] * 5, [1.0] * 5, [1.0] * 5, period=14) is None
 
 
 def test_simple_moving_average_computes_average_of_recent_window():
