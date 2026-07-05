@@ -158,6 +158,63 @@ def test_strategy_priority_matches_notification_side():
     assert NOTIFY_PRIORITY == RESEARCH_PRIORITY
 
 
+def test_knn_study_finds_signal_when_feature_predicts_returns():
+    """特徴量がリターンを決めるデータでは、kNN予測の上位群が実際に高リターンになること。"""
+    from stock_analyzer.research import knn_study
+
+    rng = np.random.default_rng(0)
+    n_train, n_test = 6000, 2500
+    x_train = rng.normal(0, 1, n_train)
+    x_test = rng.normal(0, 1, n_test)
+    # リターン = 特徴量×2 + ノイズ
+    obs = pd.DataFrame(
+        {
+            "数値:f1": np.concatenate([x_train, x_test]),
+            "数値:f2": rng.normal(0, 1, n_train + n_test),  # 無関係な特徴量
+            "ret": np.concatenate(
+                [x_train * 2 + rng.normal(0, 1, n_train), x_test * 2 + rng.normal(0, 1, n_test)]
+            ),
+            "is_train": [True] * n_train + [False] * n_test,
+        }
+    )
+    result = knn_study(obs, k=100, max_test=2500)
+    assert result is not None
+    assert result["auc"] > 0.7
+    assert result["monotonicity_expectancy"] == 1.0
+    assert result["top20pct"]["expectancy"] > result["bottom20pct"]["expectancy"] + 1.0
+
+
+def test_knn_study_returns_none_when_insufficient_data():
+    from stock_analyzer.research import knn_study
+
+    obs = pd.DataFrame({"数値:f1": [1.0] * 100, "ret": [0.0] * 100, "is_train": [True] * 100})
+    assert knn_study(obs) is None
+
+
+def test_numeric_feature_frame_columns_and_scale_independence():
+    from stock_analyzer.research import numeric_feature_frame
+
+    frame = _frame()
+    nf = numeric_feature_frame(frame, None)
+    assert list(nf.columns) == [
+        "RSI",
+        "MACD相対",
+        "25日線乖離",
+        "25vs75日線",
+        "10日騰落",
+        "対市場10日",
+        "ATR比",
+        "出来高比",
+        "配当利回り",
+    ]
+    # 株価水準に依存しない(10倍しても同じ値になる)特徴量であること
+    scaled = frame.copy()
+    for col in ("Close", "High", "Low"):
+        scaled[col] = scaled[col] * 10
+    nf10 = numeric_feature_frame(scaled, None)
+    pd.testing.assert_frame_equal(nf, nf10, check_exact=False, atol=1e-6)
+
+
 def test_basic_stats_expectancy_is_mean_return():
     stats = basic_stats(np.array([10.0, -5.0, 10.0, -5.0]))
     assert stats["expectancy"] == 2.5

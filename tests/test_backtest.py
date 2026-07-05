@@ -187,6 +187,16 @@ def test_compute_stats_all_requested_metrics():
     assert stats["max_loss"] == -5.0
     assert stats["max_drawdown"] == -5.0  # 累積10→5(ピーク比-5ポイント)
     assert stats["signals_per_year"] == 20.0
+    # 分布統計
+    assert stats["median"] == 2.5
+    assert stats["p25"] == -5.0
+    assert stats["p75"] == 10.0
+    assert stats["var95"] == -5.0
+    assert stats["cvar95"] == -5.0
+    assert stats["prob_up_5"] == 50.0
+    assert stats["prob_down_5"] == 50.0
+    assert stats["prob_up_10"] == 50.0
+    assert stats["prob_down_10"] == 0.0
 
 
 def test_compute_stats_same_day_signals_averaged_for_drawdown():

@@ -117,6 +117,115 @@ def feature_frame(frame: pd.DataFrame, bench_roc10: pd.Series | None) -> pd.Data
     return f
 
 
+def numeric_feature_frame(frame: pd.DataFrame, bench_roc10: pd.Series | None) -> pd.DataFrame:
+    """類似局面検索用の連続値特徴量(すべて水準に依存しない比率・乖離)。"""
+    close, high, low, vol = frame["Close"], frame["High"], frame["Low"], frame["Volume"]
+    n = pd.DataFrame(index=frame.index)
+
+    sma25 = close.rolling(25).mean()
+    sma75 = close.rolling(75).mean()
+    diff = close.diff()
+    gains = diff.clip(lower=0).rolling(14).sum() / 14
+    losses = (-diff).clip(lower=0).rolling(14).sum() / 14
+    rsi = pd.Series(np.where(losses == 0, 100.0, 100 - 100 / (1 + gains / losses)), index=frame.index)
+    rsi[gains.isna()] = np.nan
+    n["RSI"] = rsi
+
+    ema12 = close.ewm(span=12, adjust=False).mean()
+    ema26 = close.ewm(span=26, adjust=False).mean()
+    macd_line = ema12 - ema26
+    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    n["MACD相対"] = (macd_line - signal_line) / close * 100
+
+    n["25日線乖離"] = (close / sma25 - 1) * 100
+    n["25vs75日線"] = (sma25 / sma75 - 1) * 100
+
+    roc10 = (close / close.shift(10) - 1) * 100
+    n["10日騰落"] = roc10
+    if bench_roc10 is not None:
+        n["対市場10日"] = roc10 - bench_roc10.reindex(frame.index).ffill()
+    else:
+        n["対市場10日"] = 0.0
+
+    prev_close = close.shift(1)
+    tr = pd.concat([high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
+    n["ATR比"] = tr.rolling(14).mean() / close * 100
+    n["出来高比"] = vol.rolling(5).mean() / vol.shift(5).rolling(5).mean()
+
+    div = frame["Dividends"] if "Dividends" in frame else pd.Series(0.0, index=frame.index)
+    n["配当利回り"] = div.rolling(252, min_periods=1).sum() / close * 100
+    return n
+
+
+def knn_study(obs: pd.DataFrame, k: int = 200, max_test: int = 12000, seed: int = 0) -> dict | None:
+    """類似局面検索(kNN)の有効性を検証期間で評価する。
+
+    学習期間の観測を「過去の局面データベース」とし、検証期間の各観測に
+    ついて特徴量が最も近いk件の平均リターンを予測値とする。予測値の高い
+    群が実際に高リターンなら、スコア帯平均を超える判別力があると言える。
+    """
+    cols = [c for c in obs.columns if c.startswith("数値:")]
+    if not cols:
+        return None
+    data = obs.dropna(subset=cols)
+    train = data[data["is_train"]]
+    test = data[~data["is_train"]]
+    if len(train) < 5000 or len(test) < 2000:
+        return None
+
+    rng = np.random.default_rng(seed)
+    if len(test) > max_test:
+        test = test.iloc[np.sort(rng.choice(len(test), max_test, replace=False))]
+
+    X_tr = train[cols].to_numpy(dtype=np.float32)
+    mu, sd = X_tr.mean(axis=0), X_tr.std(axis=0)
+    sd[sd == 0] = 1.0
+    X_tr = (X_tr - mu) / sd
+    y_tr = train["ret"].to_numpy(dtype=np.float32)
+    X_te = (test[cols].to_numpy(dtype=np.float32) - mu) / sd
+
+    preds = np.empty(len(X_te), dtype=np.float32)
+    win_preds = np.empty(len(X_te), dtype=np.float32)
+    tr_sq = (X_tr**2).sum(axis=1)
+    wins_tr = (y_tr > 0).astype(np.float32)
+    for start in range(0, len(X_te), 1000):
+        chunk = X_te[start : start + 1000]
+        d2 = tr_sq[None, :] - 2 * chunk @ X_tr.T + (chunk**2).sum(axis=1)[:, None]
+        idx = np.argpartition(d2, k, axis=1)[:, :k]
+        preds[start : start + 1000] = y_tr[idx].mean(axis=1)
+        win_preds[start : start + 1000] = wins_tr[idx].mean(axis=1)
+
+    actual = test["ret"].to_numpy()
+    order = pd.qcut(pd.Series(preds).rank(method="first"), 10, labels=False, duplicates="drop")
+    deciles = []
+    for q in range(10):
+        mask = (order == q).to_numpy()
+        deciles.append(
+            {
+                "predicted": round(float(preds[mask].mean()), 2),
+                **basic_stats(actual[mask]),
+            }
+        )
+    mono = spearman_monotonicity(list(range(10)), [d["expectancy"] for d in deciles if d.get("count")])
+    top = actual[preds >= np.quantile(preds, 0.8)]
+    bottom = actual[preds <= np.quantile(preds, 0.2)]
+    return {
+        "k": k,
+        "n_train": int(len(train)),
+        "n_test": int(len(test)),
+        "features": [c.replace("数値:", "") for c in cols],
+        "auc": auc_score(preds, actual > 0),
+        "pred_actual_corr": round(float(np.corrcoef(preds, actual)[0, 1]), 4),
+        "monotonicity_expectancy": mono,
+        "deciles(低→高)": deciles,
+        "top20pct": basic_stats(top),
+        "bottom20pct": basic_stats(bottom),
+        "win_rate_calibration_corr": round(
+            float(np.corrcoef(win_preds, (actual > 0).astype(float))[0, 1]), 4
+        ),
+    }
+
+
 def strategy_frame(f: pd.DataFrame) -> pd.DataFrame:
     """特徴量から4つの戦略タイプの成立フラグを作る(通知側の判定と同一定義)。"""
     s = pd.DataFrame(index=f.index)
@@ -304,6 +413,7 @@ def run_research(period: str, step: int, out_path: str, strategy_out_path: str, 
     for ticker, frame in frames.items():
         f = feature_frame(frame, bench_roc10)
         s = strategy_frame(f)
+        nf = numeric_feature_frame(frame, bench_roc10)
         fwd = (frame["Close"].shift(-FORWARD_DAYS) / frame["Close"] - 1) * 100
 
         close = frame["Close"].to_numpy()
@@ -337,6 +447,7 @@ def run_research(period: str, step: int, out_path: str, strategy_out_path: str, 
                     "types": symbol_types,
                     **{name: bool(f[name].iloc[i]) for name in feature_names},
                     **{f"戦略:{name}": bool(s[name].iloc[i]) for name in s.columns},
+                    **{f"数値:{name}": float(nf[name].iloc[i]) for name in nf.columns},
                 }
             )
     obs = pd.DataFrame(rows)
@@ -550,7 +661,11 @@ def run_research(period: str, step: int, out_path: str, strategy_out_path: str, 
             "bottom20pct": basic_stats(returns[wf_scores <= wf_scores.quantile(0.2)]),
         }
 
+    print("類似局面検索(kNN)を評価中…")
+    knn_result = knn_study(obs)
+
     output = {
+        "knn_similarity": knn_result,
         "metadata": {
             "run_at": datetime.now(TOKYO).isoformat(timespec="seconds"),
             "period": period,
