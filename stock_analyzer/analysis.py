@@ -76,6 +76,10 @@ class HoldingAnalysis:
     atr: float | None = None  # average true range (volatility unit for targets)
     ex_dividend_estimated: bool = False  # True when the date is projected, not announced
     sma_mid_prev10: float | None = None  # 10営業日前時点の25日線(レンジ判定用)
+    target_mean_price: float | None = None  # アナリスト目標株価(平均)
+    target_median_price: float | None = None  # アナリスト目標株価(中央値)
+    num_analysts: int | None = None  # アナリスト数(信頼度の材料)
+    recommendation_mean: float | None = None  # 推奨平均(1=強い買い〜5=強い売り)
 
     @property
     def profit_pct(self) -> float | None:
@@ -159,4 +163,8 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
         atr=average_true_range(highs, lows, closes),
         ex_dividend_estimated=ex_dividend_estimated,
         sma_mid_prev10=simple_moving_average(closes[:-10], SMA_MID) if len(closes) > 10 else None,
+        target_mean_price=fundamentals["target_mean_price"],
+        target_median_price=fundamentals["target_median_price"],
+        num_analysts=fundamentals["num_analysts"],
+        recommendation_mean=fundamentals["recommendation_mean"],
     )

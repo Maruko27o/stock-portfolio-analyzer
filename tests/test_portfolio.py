@@ -3,8 +3,47 @@ from unittest.mock import MagicMock, patch
 from stock_analyzer.portfolio import (
     load_portfolio,
     load_portfolio_from_sheet,
+    normalize_account,
     normalize_symbol,
 )
+
+
+def test_normalize_account_variants():
+    assert normalize_account("NISA") == "NISA"
+    assert normalize_account("nisa") == "NISA"
+    assert normalize_account("成長投資枠") == "NISA"
+    assert normalize_account("つみたてNISA") == "NISA"
+    assert normalize_account("特定") == "特定"
+    assert normalize_account("一般") == "特定"
+    assert normalize_account("") == "特定"
+    assert normalize_account(None) == "特定"
+
+
+def test_load_portfolio_reads_account_column(tmp_path):
+    csv_path = tmp_path / "portfolio.csv"
+    csv_path.write_text(
+        "symbol,quantity,avg_cost,account\n"
+        "7203.T,100,3000,NISA\n"
+        "6758.T,10,13000,特定\n"
+        "9432.T,10,4000,\n",
+        encoding="utf-8",
+    )
+
+    holdings = load_portfolio(str(csv_path))
+
+    assert holdings[0].account == "NISA"
+    assert holdings[1].account == "特定"
+    assert holdings[2].account == "特定"  # 未指定は特定扱い
+
+
+def test_load_portfolio_defaults_account_when_column_absent(tmp_path):
+    csv_path = tmp_path / "portfolio.csv"
+    csv_path.write_text(
+        "symbol,quantity,avg_cost\n7203.T,100,3000\n",
+        encoding="utf-8",
+    )
+    holdings = load_portfolio(str(csv_path))
+    assert holdings[0].account == "特定"
 
 
 def test_normalize_symbol_appends_t_for_numeric_japanese_codes():

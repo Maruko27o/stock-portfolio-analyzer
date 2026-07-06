@@ -17,7 +17,13 @@ RATING_COLOR = {
     "▲": "#2980B9",
     "×": "#34495E",
 }
-SENTIMENT_COLOR = {"強気": "#C0392B", "弱気": "#2980B9", "中立": "#7F8C8D"}
+SENTIMENT_COLOR = {
+    "強気": "#C0392B",
+    "やや強気": "#E67E22",
+    "弱気": "#2980B9",
+    "やや弱気": "#5DADE2",
+    "中立": "#7F8C8D",
+}
 PROFIT_UP_COLOR = "#C0392B"
 PROFIT_DOWN_COLOR = "#2980B9"
 MUTED = "#8899A6"

@@ -12,12 +12,28 @@ class Holding:
     quantity: float
     avg_cost: float
     name: str | None = None
+    account: str = "特定"  # "NISA" | "特定"。税最適化(tax.py)で口座別に扱う
 
 
 def _row_name(row: dict) -> str | None:
     """Return the optional 'name' column value, or None if absent/blank."""
     name = str(row.get("name", "") or "").strip()
     return name or None
+
+
+def normalize_account(raw: str | None) -> str:
+    """口座区分の表記ゆれを "NISA" / "特定" の2値へ寄せる。
+
+    NISA(新旧・つみたて・成長投資枠)は非課税で税最適化の扱いが異なるため区別する。
+    それ以外(特定/一般/未指定)は課税口座として "特定" にまとめる。
+    """
+    text = str(raw or "").strip()
+    if not text:
+        return "特定"
+    lowered = text.lower()
+    if "nisa" in lowered or "ニーサ" in text or "成長投資" in text or "つみたて" in text:
+        return "NISA"
+    return "特定"
 
 
 def normalize_symbol(raw: str) -> str:
@@ -45,6 +61,7 @@ def load_portfolio(path: str) -> list[Holding]:
                     quantity=float(row["quantity"]),
                     avg_cost=float(row["avg_cost"]),
                     name=_row_name(row),
+                    account=normalize_account(row.get("account")),
                 )
             )
     return holdings
@@ -71,6 +88,7 @@ def load_portfolio_from_sheet(sheet_id: str, service_account_info: dict) -> list
                 quantity=float(row["quantity"]),
                 avg_cost=float(row["avg_cost"]),
                 name=_row_name(row),
+                account=normalize_account(row.get("account")),
             )
         )
     return holdings
