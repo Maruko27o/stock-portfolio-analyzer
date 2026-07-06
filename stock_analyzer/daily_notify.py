@@ -66,9 +66,10 @@ def main() -> None:
 
     symbols_text = args.symbols or os.environ.get(ANALYZE_SYMBOLS_ENV_VAR, "")
 
-    # Scheduled runs skip closed days (weekends run anyway via cron 1-5, so this
-    # mainly catches Japanese public holidays and year-end closures). On-demand
-    # runs (symbols given / manual button) still work on any day.
+    # Scheduled runs skip closed days. The cron fires every day, so this skip is
+    # what keeps weekends, Japanese public holidays, and year-end closures from
+    # sending a stale report. On-demand runs (symbols given / manual button) still
+    # work on any day.
     if os.environ.get(SKIP_IF_CLOSED_ENV_VAR) and not symbols_text.strip():
         today = datetime.now(ZoneInfo("Asia/Tokyo")).date()
         if is_market_closed(today):
