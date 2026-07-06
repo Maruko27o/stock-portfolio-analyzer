@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+from stock_analyzer import metrics
 from stock_analyzer.backtest import (
     BacktestConfig,
     ExitRule,
@@ -242,25 +243,8 @@ def strategy_frame(f: pd.DataFrame) -> pd.DataFrame:
 
 
 def basic_stats(returns: np.ndarray) -> dict:
-    n = len(returns)
-    if n == 0:
-        return {"count": 0}
-    wins = returns > 0
-    losses = returns < 0
-    win_rate = wins.mean() * 100
-    avg_win = float(returns[wins].mean()) if wins.any() else 0.0
-    avg_loss = float(abs(returns[losses].mean())) if losses.any() else 0.0
-    total_win = float(returns[wins].sum()) if wins.any() else 0.0
-    total_loss = float(abs(returns[losses].sum())) if losses.any() else 0.0
-    return {
-        "count": int(n),
-        "win_rate": round(float(win_rate), 2),
-        "avg_win": round(avg_win, 2),
-        "avg_loss": round(avg_loss, 2),
-        "risk_reward": round(avg_win / avg_loss, 2) if avg_loss > 0 else None,
-        "profit_factor": round(total_win / total_loss, 2) if total_loss > 0 else None,
-        "expectancy": round(float(returns.mean()), 2),
-    }
+    """期待値=平均リターンの軽量統計。定義は metrics.return_stats に集約。"""
+    return metrics.return_stats(returns)
 
 
 def auc_score(scores: np.ndarray, wins: np.ndarray) -> float | None:
@@ -352,6 +336,107 @@ def fetch_symbol_meta(tickers: list[str], cache_path: str) -> dict:
     with open(cache_path, "w", encoding="utf-8") as fh:
         json.dump(meta, fh, ensure_ascii=False, indent=1)
     return meta
+
+
+# ---------------------------------------------------------------------------
+# 特徴量監査と採用モデル生成(過学習を避けるゲート採用)
+# ---------------------------------------------------------------------------
+
+# 採用ゲートの既定規準。OOS上乗せのCI下限がこのマージンを超え、かつ有効相場が
+# min_regimes 個以上のものだけを keep とする。数値は保守寄り(誤採用を避ける)。
+GATE_MARGIN = 0.0
+GATE_MIN_REGIMES = 2
+WEIGHT_SHRINK = 0.5  # 個別推定を全体平均へ収縮(ノイズへの過剰適合を抑制)
+
+
+def audit_features(
+    dates: np.ndarray,
+    ret: np.ndarray,
+    feature_table: dict[str, np.ndarray],
+    regimes: np.ndarray | None = None,
+    n_folds: int = 5,
+    embargo: float = 20.0,
+    min_margin: float = GATE_MARGIN,
+    min_regimes: int = GATE_MIN_REGIMES,
+) -> list[dict]:
+    """各特徴量をローリングWFで検証し、採用ゲートで keep/downweight/drop を判定する。
+
+    価格系のブール特徴量のみ対象(ファンダ/信用/ニュースは点在時点データが無く対象外)。
+    閾値の自由度が無い素の特徴量は sensitivity_flat=True(閾値過学習の余地が無い)。
+    """
+    import stock_analyzer.validation as validation
+
+    out = []
+    for name, feat in feature_table.items():
+        gen = validation.feature_generalization(
+            dates, ret, feat, regimes, n_folds=n_folds, embargo=embargo
+        )
+        gate = validation.evaluate_gate(
+            gen.get("uplift_ci"),
+            gen.get("regime_uplifts", {}),
+            sensitivity_flat=True,
+            min_margin=min_margin,
+            min_regimes=min_regimes,
+        )
+        out.append(
+            {
+                "feature": name,
+                "verdict": gate["verdict"],
+                "reason": gate["reason"],
+                "generalization": gen,
+            }
+        )
+    # 期待値上乗せの点推定が高い順(説明性のため)
+    out.sort(key=lambda a: -((a["generalization"].get("uplift_ci") or {}).get("point") or -999))
+    return out
+
+
+def build_adopted_model(
+    audit: list[dict],
+    metadata: dict | None = None,
+    shrink: float = WEIGHT_SHRINK,
+) -> dict:
+    """監査結果から機械可読の採用モデル(adopted_model.json)を組み立てる。
+
+    keep/downweight の特徴量だけを採用し、重みはOOS上乗せの点推定を全体平均へ収縮
+    (縮小推定)して過学習を抑える。downweight はさらに半減。drop は理由付きで rejected に。
+    """
+    kept = [a for a in audit if a["verdict"] in ("keep", "downweight")]
+    points = {
+        a["feature"]: ((a["generalization"].get("uplift_ci") or {}).get("point") or 0.0)
+        for a in kept
+    }
+    mean_pt = sum(points.values()) / len(points) if points else 0.0
+
+    features = {}
+    for a in kept:
+        p = points[a["feature"]]
+        w = mean_pt + shrink * (p - mean_pt)  # 全体平均へ収縮
+        if a["verdict"] == "downweight":
+            w *= 0.5
+        gen = a["generalization"]
+        features[a["feature"]] = {
+            "weight": round(w, 4),
+            "verdict": a["verdict"],
+            "reason": a["reason"],
+            "oos_uplift_ci": gen.get("uplift_ci"),
+            "regime_uplifts": gen.get("regime_uplifts", {}),
+            "positive_fraction": gen.get("uplift_positive_fraction"),
+        }
+    rejected = [
+        {"feature": a["feature"], "reason": a["reason"]} for a in audit if a["verdict"] == "drop"
+    ]
+    return {
+        "metadata": {
+            "method": "rolling walk-forward OOS uplift + bootstrap CI gate(価格系特徴量のみ)",
+            "gate": f"OOS上乗せCI下限>{GATE_MARGIN} かつ 有効相場>={GATE_MIN_REGIMES} で keep、CI下限>0で downweight",
+            "weight_shrink": shrink,
+            "excluded": "ファンダ/信用/ニュース/セクター資金流入は点在時点データ源が無く厳密検証の対象外",
+            **(metadata or {}),
+        },
+        "features": features,
+        "rejected": rejected,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -661,10 +746,40 @@ def run_research(period: str, step: int, out_path: str, strategy_out_path: str, 
             "bottom20pct": basic_stats(returns[wf_scores <= wf_scores.quantile(0.2)]),
         }
 
+    # --- 特徴量監査＋採用ゲート → adopted_model.json ---
+    print("特徴量をローリングWFで監査中(採用ゲート)…")
+    day_ordinals = (obs["date"] - pd.Timestamp("2000-01-01")).dt.days.to_numpy()
+    ret_arr = obs["ret"].to_numpy(dtype=float)
+    regime_arr = obs["regime"].to_numpy()
+    feature_table = {name: obs[name].to_numpy(dtype=bool) for name in feature_names}
+    audit = audit_features(day_ordinals, ret_arr, feature_table, regime_arr)
+    adopted_model = build_adopted_model(
+        audit,
+        metadata={
+            "run_at": datetime.now(TOKYO).isoformat(timespec="seconds"),
+            "train_end": str(TRAIN_END.date()),
+            "forward_days": FORWARD_DAYS,
+            "symbols_used": len(frames),
+            "observations": len(obs),
+        },
+    )
+    adopted_path = os.path.join(os.path.dirname(out_path) or ".", "adopted_model.json")
+    with open(adopted_path, "w", encoding="utf-8") as fh:
+        json.dump(adopted_model, fh, ensure_ascii=False, indent=1)
+    print(
+        f"採用モデル生成: {adopted_path}"
+        f"(採用{len(adopted_model['features'])}件 / 棄却{len(adopted_model['rejected'])}件)"
+    )
+
     print("類似局面検索(kNN)を評価中…")
     knn_result = knn_study(obs)
 
     output = {
+        "feature_audit": audit,
+        "adopted_summary": {
+            "adopted": list(adopted_model["features"].keys()),
+            "rejected": [r["feature"] for r in adopted_model["rejected"]],
+        },
         "knn_similarity": knn_result,
         "metadata": {
             "run_at": datetime.now(TOKYO).isoformat(timespec="seconds"),

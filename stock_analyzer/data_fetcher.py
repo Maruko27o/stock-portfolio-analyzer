@@ -97,6 +97,12 @@ def fetch_fundamentals(symbol: str) -> dict[str, float | str | None]:
         "current_ratio": info.get("currentRatio"),
         "sector": info.get("sector"),
         "industry": info.get("industry"),
+        # アナリストのコンセンサス。適正価格・長期期待リターンの一材料に使う。
+        # 取得できない銘柄も多いので欠損(None)前提で扱う。
+        "target_mean_price": info.get("targetMeanPrice"),
+        "target_median_price": info.get("targetMedianPrice"),
+        "num_analysts": info.get("numberOfAnalystOpinions"),
+        "recommendation_mean": info.get("recommendationMean"),
     }
 
 

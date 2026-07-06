@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+from stock_analyzer import metrics, model_store
 from stock_analyzer.screener import load_universe
 
 TOKYO = ZoneInfo("Asia/Tokyo")
@@ -123,6 +124,7 @@ def technical_points(frame: pd.DataFrame, bench_roc10: pd.Series | None) -> pd.S
     close, high, low, vol = frame["Close"], frame["High"], frame["Low"], frame["Volume"]
     zeros = pd.Series(0.0, index=frame.index)
     pts = zeros.copy()
+    w = model_store.technical_weights()  # 重みの単一出所(build_signalsと共有)
 
     sma5 = close.rolling(5).mean()
     sma25 = close.rolling(25).mean()
@@ -130,13 +132,13 @@ def technical_points(frame: pd.DataFrame, bench_roc10: pd.Series | None) -> pd.S
 
     # 25日線
     valid = sma25.notna()
-    pts += np.where(valid & (close > sma25), 8, 0)
-    pts += np.where(valid & ~(close > sma25), -8, 0)
+    pts += np.where(valid & (close > sma25), w["sma25"], 0)
+    pts += np.where(valid & ~(close > sma25), -w["sma25"], 0)
 
     # 移動平均の配列
     valid = sma5.notna() & sma25.notna() & sma75.notna()
-    pts += np.where(valid & (sma5 > sma25) & (sma25 > sma75), 5, 0)
-    pts += np.where(valid & (sma5 < sma25) & (sma25 < sma75), -5, 0)
+    pts += np.where(valid & (sma5 > sma25) & (sma25 > sma75), w["ma_align"], 0)
+    pts += np.where(valid & (sma5 < sma25) & (sma25 < sma75), -w["ma_align"], 0)
 
     # MACD(existing _ema_series と同じ再帰式: ewm(adjust=False))
     ema12 = close.ewm(span=12, adjust=False).mean()
@@ -149,10 +151,10 @@ def technical_points(frame: pd.DataFrame, bench_roc10: pd.Series | None) -> pd.S
     crossed_up = macd_valid & (prev_macd <= prev_signal) & (macd_line > signal_line)
     crossed_down = macd_valid & (prev_macd >= prev_signal) & (macd_line < signal_line)
     residual = macd_valid & ~crossed_up & ~crossed_down
-    pts += np.where(crossed_up, 10, 0)
-    pts += np.where(crossed_down, -10, 0)
-    pts += np.where(residual & (macd_line > signal_line), 4, 0)
-    pts += np.where(residual & ~(macd_line > signal_line), -4, 0)
+    pts += np.where(crossed_up, w["macd_cross"], 0)
+    pts += np.where(crossed_down, -w["macd_cross"], 0)
+    pts += np.where(residual & (macd_line > signal_line), w["macd_trend"], 0)
+    pts += np.where(residual & ~(macd_line > signal_line), -w["macd_trend"], 0)
 
     # RSI(直近14変化の単純平均。既存実装と同式)
     diff = close.diff()
@@ -160,8 +162,8 @@ def technical_points(frame: pd.DataFrame, bench_roc10: pd.Series | None) -> pd.S
     losses = (-diff).clip(lower=0).rolling(14).sum() / 14
     rsi = pd.Series(np.where(losses == 0, 100.0, 100 - 100 / (1 + gains / losses)), index=frame.index)
     rsi[gains.isna() | losses.isna()] = np.nan
-    pts += np.where(rsi <= 30, 8, 0)
-    pts += np.where(rsi >= 70, -8, 0)
+    pts += np.where(rsi <= 30, w["rsi_extreme"], 0)
+    pts += np.where(rsi >= 70, -w["rsi_extreme"], 0)
 
     # 価格×出来高
     price_change = close - close.shift(5)
@@ -169,40 +171,40 @@ def technical_points(frame: pd.DataFrame, bench_roc10: pd.Series | None) -> pd.S
     prev_vol = vol.shift(5).rolling(5).mean()
     vp_valid = price_change.notna() & recent_vol.notna() & prev_vol.notna()
     rising = recent_vol > prev_vol
-    pts += np.where(vp_valid & (price_change > 0) & rising, 6, 0)
-    pts += np.where(vp_valid & (price_change > 0) & ~rising, -2, 0)
-    pts += np.where(vp_valid & (price_change < 0) & rising, -6, 0)
-    # 残り(下落×出来高減、または横ばい)は「下げ渋り」+2
-    pts += np.where(vp_valid & ~(price_change > 0) & ~((price_change < 0) & rising), 2, 0)
+    pts += np.where(vp_valid & (price_change > 0) & rising, w["vol_strong_up"], 0)
+    pts += np.where(vp_valid & (price_change > 0) & ~rising, -w["vol_weak_up"], 0)
+    pts += np.where(vp_valid & (price_change < 0) & rising, -w["vol_strong_down"], 0)
+    # 残り(下落×出来高減、または横ばい)は「下げ渋り」
+    pts += np.where(vp_valid & ~(price_change > 0) & ~((price_change < 0) & rising), w["vol_dip"], 0)
 
     # サポート/レジスタンス(直近60日)
     resistance = high.rolling(60).max()
     support = low.rolling(60).min()
     sr_valid = resistance.notna() & support.notna()
-    pts += np.where(sr_valid & (close >= resistance), 5, 0)
-    pts += np.where(sr_valid & ~(close >= resistance) & (close <= support), -5, 0)
+    pts += np.where(sr_valid & (close >= resistance), w["sr_break"], 0)
+    pts += np.where(sr_valid & ~(close >= resistance) & (close <= support), -w["sr_break"], 0)
 
     # ボリンジャー(population std)
     mean20 = close.rolling(20).mean()
     std20 = close.rolling(20).std(ddof=0)
     sigma = pd.Series(np.where(std20 == 0, 0.0, (close - mean20) / std20), index=frame.index)
     sigma[mean20.isna()] = np.nan
-    pts += np.where(sigma >= 2, -3, 0)
-    pts += np.where(sigma <= -2, 3, 0)
+    pts += np.where(sigma >= 2, -w["bb"], 0)
+    pts += np.where(sigma <= -2, w["bb"], 0)
 
     # モメンタム(10日騰落率)
     roc10 = (close / close.shift(10) - 1) * 100
-    pts += np.where(roc10 >= 10, 6, 0)
-    pts += np.where((roc10 >= 3) & (roc10 < 10), 3, 0)
-    pts += np.where(roc10 <= -10, -6, 0)
-    pts += np.where((roc10 <= -3) & (roc10 > -10), -3, 0)
+    pts += np.where(roc10 >= 10, w["mom_strong"], 0)
+    pts += np.where((roc10 >= 3) & (roc10 < 10), w["mom_mild"], 0)
+    pts += np.where(roc10 <= -10, -w["mom_strong"], 0)
+    pts += np.where((roc10 <= -3) & (roc10 > -10), -w["mom_mild"], 0)
 
     # 対ベンチマーク相対力
     if bench_roc10 is not None:
         bench = bench_roc10.reindex(frame.index).ffill()
         rel = roc10 - bench
-        pts += np.where(rel >= 5, 4, 0)
-        pts += np.where(rel <= -5, -4, 0)
+        pts += np.where(rel >= 5, w["rel"], 0)
+        pts += np.where(rel <= -5, -w["rel"], 0)
 
     return pts
 
@@ -214,8 +216,9 @@ def dividend_points(frame: pd.DataFrame) -> pd.Series:
     trailing = dividends.rolling(252, min_periods=1).sum()
     yield_pct = trailing / close * 100
 
+    dw = model_store.DIVIDEND_WEIGHTS
     pts = pd.Series(0.0, index=frame.index)
-    pts += np.where(yield_pct >= 3.0, 3, 0)
+    pts += np.where(yield_pct >= 3.0, dw["high_yield"], 0)
 
     ex_dates = frame.index[dividends > 0]
     if len(ex_dates):
@@ -227,7 +230,7 @@ def dividend_points(frame: pd.DataFrame) -> pd.Series:
         deltas = (next_dates - frame.index.values) / np.timedelta64(1, "D")
         days_to_next[has_next] = deltas[has_next]
         near = (days_to_next >= 1) & (days_to_next <= 30) & (trailing.values > 0)
-        pts += np.where(near, 4, 0)
+        pts += np.where(near, dw["ex_div_near"], 0)
     return pts
 
 
@@ -252,7 +255,11 @@ def build_market_features(period: str, master_index: pd.DatetimeIndex):
         aligned = change.reindex(master_index, method="ffill")
         pos += (aligned > 0).astype(int)
         neg += (aligned < 0).astype(int)
-    sentiment_pts = pd.Series(np.where(pos > neg, 5, np.where(neg > pos, -5, 0)), index=master_index)
+    mw = model_store.MARKET_WEIGHTS
+    sentiment_pts = pd.Series(
+        np.where(pos > neg, mw["sentiment"], np.where(neg > pos, -mw["sentiment"], 0)),
+        index=master_index,
+    )
 
     vix_pts = pd.Series(0.0, index=master_index)
     try:
@@ -261,7 +268,11 @@ def build_market_features(period: str, master_index: pd.DatetimeIndex):
             vix.index = vix.index.tz_localize(None)
         level = vix.reindex(master_index, method="ffill")
         vix_pts = pd.Series(
-            np.where(level >= 30, -8, np.where(level >= 25, -4, np.where(level <= 15, 2, 0))),
+            np.where(
+                level >= 30,
+                -mw["vix_high"],
+                np.where(level >= 25, -mw["vix_warn"], np.where(level <= 15, mw["vix_calm"], 0)),
+            ),
             index=master_index,
         )
         vix_pts[level.isna()] = 0
@@ -353,82 +364,10 @@ def simulate_exit(rule: ExitRule, entry: int, close: np.ndarray, high: np.ndarra
 def compute_stats(returns: np.ndarray, holds: np.ndarray, entry_dates: np.ndarray, years: float, sample_step: int) -> dict:
     """1つの(ルール, スコア帯)の全要求指標を計算する。
 
-    max_drawdownは「同一エントリー日のシグナルを等金額で平均したリターン」を
-    日付順に累積した曲線のピークからの下落幅(%ポイント・非複利)。同日に
-    多数の銘柄が重なるプール集計を連続複利にすると暴落日に非現実的な
-    複利連鎖が起きるため、この定義を使う。
+    定義は metrics.trade_stats に集約(バックテストと特徴量解析で一致させるため)。
+    Sharpe/Sortino/Calmar/MaxDD/分位点/確率などを含む。
     """
-    count = len(returns)
-    if count == 0:
-        return {"count": 0}
-
-    wins = returns > 0
-    losses = returns < 0
-    win_rate = wins.mean() * 100
-    avg_win = float(returns[wins].mean()) if wins.any() else 0.0
-    avg_loss = float(abs(returns[losses].mean())) if losses.any() else 0.0
-    total_win = float(returns[wins].sum()) if wins.any() else 0.0
-    total_loss = float(abs(returns[losses].sum())) if losses.any() else 0.0
-    expectancy = (win_rate / 100) * avg_win - (1 - win_rate / 100) * avg_loss
-
-    unique_dates = np.unique(entry_dates)
-    daily_means = np.array(
-        [returns[entry_dates == day].mean() for day in np.sort(unique_dates)]
-    )
-    cumulative = np.cumsum(daily_means)
-    running_peak = np.maximum.accumulate(np.concatenate([[0.0], cumulative]))[1:]
-    max_drawdown = float((cumulative - running_peak).min()) if len(cumulative) else 0.0
-
-    avg_hold = float(holds.mean())
-    volatility = float(returns.std(ddof=0))
-    trades_per_year_equiv = 250 / avg_hold if avg_hold > 0 else 0
-    sharpe = (
-        float(returns.mean() / volatility * np.sqrt(trades_per_year_equiv)) if volatility > 0 else 0.0
-    )
-    annual_return = expectancy * trades_per_year_equiv
-    calmar = float(annual_return / abs(max_drawdown)) if max_drawdown < 0 else 0.0
-
-    # リターン分布(平均だけでなく「どの確率でどの値動きか」を出すため)
-    p = lambda q: round(float(np.percentile(returns, q)), 2)  # noqa: E731
-    var95 = p(5)
-    tail = returns[returns <= np.percentile(returns, 5)]
-    cvar95 = round(float(tail.mean()), 2) if len(tail) else None
-    prob = lambda mask: round(float(mask.mean() * 100), 1)  # noqa: E731
-
-    return {
-        "count": int(count),
-        "win_rate": round(float(win_rate), 2),
-        "avg_win": round(avg_win, 2),
-        "avg_loss": round(avg_loss, 2),
-        "risk_reward": round(avg_win / avg_loss, 2) if avg_loss > 0 else None,
-        "profit_factor": round(total_win / total_loss, 2) if total_loss > 0 else None,
-        "expectancy": round(float(expectancy), 2),
-        "avg_hold_days": round(avg_hold, 1),
-        "avg_hold_days_win": round(float(holds[wins].mean()), 1) if wins.any() else None,
-        "avg_hold_days_loss": round(float(holds[losses].mean()), 1) if losses.any() else None,
-        "max_win": round(float(returns.max()), 2),
-        "max_loss": round(float(returns.min()), 2),
-        "max_drawdown": round(max_drawdown, 2),
-        "sharpe": round(sharpe, 2),
-        "calmar": round(calmar, 2),
-        "volatility": round(volatility, 2),
-        "signals_per_year": round(count * sample_step / years, 1),
-        "median": p(50),
-        "p2_5": p(2.5),
-        "p10": p(10),
-        "p25": p(25),
-        "p75": p(75),
-        "p90": p(90),
-        "p97_5": p(97.5),
-        "var95": var95,
-        "cvar95": cvar95,
-        "prob_up_3": prob(returns >= 3),
-        "prob_up_5": prob(returns >= 5),
-        "prob_up_10": prob(returns >= 10),
-        "prob_down_3": prob(returns <= -3),
-        "prob_down_5": prob(returns <= -5),
-        "prob_down_10": prob(returns <= -10),
-    }
+    return metrics.trade_stats(returns, holds, entry_dates, years, sample_step)
 
 
 # ---------------------------------------------------------------------------

@@ -2,9 +2,10 @@ name: Daily Portfolio Notification
 
 on:
   schedule:
-    # Weekdays (JST) at 13:00 and 21:00. GitHub cron is UTC (JST = UTC+9).
-    - cron: "0 4 * * 1-5" #  13:00 JST Mon-Fri (= 04:00 UTC Mon-Fri)
-    - cron: "0 12 * * 1-5" # 21:00 JST Mon-Fri (= 12:00 UTC Mon-Fri)
+    # 毎日 (JST) 12:00 と 21:00。GitHub の cron は UTC (JST = UTC+9)。
+    # 市場休場日(土日・祝日・年末年始)は SKIP_IF_MARKET_CLOSED により自動でスキップ。
+    - cron: "0 3 * * *" #  12:00 JST 毎日 (= 03:00 UTC)
+    - cron: "0 12 * * *" # 21:00 JST 毎日 (= 12:00 UTC)
   workflow_dispatch:
     inputs:
       symbols:
@@ -30,7 +31,9 @@ jobs:
 
       - name: Send notification
         env:
-          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          # LINE(旧・情報通知)は一旦停止。今回のDiscord通知に情報が統合済みのため
+          # トークンを渡さず、LINE送信をスキップさせる(コードは非破壊。再開時はこの行を戻すだけ)。
+          # LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}

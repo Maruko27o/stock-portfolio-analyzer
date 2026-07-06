@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
+from stock_analyzer.allocation import AllocationPlan, format_allocation_lines, optimize_allocation
 from stock_analyzer.analysis import HoldingAnalysis, analyze_holding
+from stock_analyzer.conclusion import DailyConclusion, build_conclusion, format_conclusion_lines
 from stock_analyzer.backtest_stats import (
     horizon_expectations,
     load_stats,
@@ -13,12 +15,21 @@ from stock_analyzer.backtest_stats import (
     stats_for_score,
     stats_for_strategy,
 )
+from stock_analyzer.decision import HoldingDecision, build_decision, format_decision_lines
+from stock_analyzer.horizon_model import expected_returns
 from stock_analyzer.data_fetcher import (
     fetch_fundamentals,
     fetch_price_history,
     split_confirmed_history,
 )
-from stock_analyzer.discord import failed_embed, holding_embed, market_embed, swing_embed
+from stock_analyzer.discord import (
+    conclusion_embed,
+    failed_embed,
+    holding_embed,
+    manager_embed,
+    market_embed,
+    swing_embed,
+)
 from stock_analyzer.fundamentals import (
     evaluate_current_ratio,
     evaluate_debt_to_equity,
@@ -41,15 +52,16 @@ from stock_analyzer.market import (
     current_market_regime,
     evaluate_market_sentiment,
     fetch_market_snapshot,
+    market_stance,
 )
 from stock_analyzer.portfolio import Holding, load_portfolio
+from stock_analyzer.rebalance import RebalancePlan, build_rebalance, format_rebalance_lines
 from stock_analyzer.screener import build_swing_section, top_swing_picks
 from stock_analyzer.scoring import evaluate_recommendation, total_score
 from stock_analyzer.summary import (
     build_summary,
     format_ex_dividend,
     format_market_header,
-    format_summary,
 )
 
 
@@ -117,25 +129,30 @@ def generate_report(holdings: list[Holding]) -> list[str]:
 
 
 def generate_summary(holdings: list[Holding], include_swing_pick: bool = True) -> list[str]:
-    """Build the concise, AI-selected summary report — used for LINE notifications.
+    """Build the concise decision report (AIファンドマネージャー判断) as plain text.
 
-    Holdings are ordered by their overall score, highest first.
+    ポート全体の判断(買い優先順位・資金配分)を先頭に、各銘柄の最小カードを続ける。
+    Discord の意思決定UIと同じ内容をローカル確認できるようにする。
     """
-    sentiment, _, snapshot = _market_section()
-    vix = snapshot.get("VIX", (None, None))[0]
-    benchmark_momentum, _ = _benchmark_context()
-    summaries = [
-        build_summary(analyze_holding(holding), sentiment, vix, benchmark_momentum)
-        for holding in holdings
-    ]
-    summaries.sort(key=lambda s: s.raw_score, reverse=True)
+    data = collect_report_data(holdings, include_swing_pick=include_swing_pick)
 
-    lines: list[str] = [format_market_header(sentiment), ""]
-    for summary in summaries:
-        lines.append(format_summary(summary))
+    lines: list[str] = []
+    if data.conclusion is not None:
+        lines.extend(format_conclusion_lines(data.conclusion))
         lines.append("")
-    if include_swing_pick:
-        lines.extend(build_swing_section())
+    lines.append(format_market_header(data.stance or data.sentiment))
+    lines.append("")
+    if data.allocation is not None:
+        lines.extend(format_allocation_lines(data.allocation))
+        lines.append("")
+    if data.rebalance is not None and data.rebalance.items:
+        lines.extend(format_rebalance_lines(data.rebalance))
+        lines.append("")
+    for decision in data.decisions:
+        lines.extend(format_decision_lines(decision))
+        lines.append("")
+    if data.failed_symbols:
+        lines.append("⚠️ 取得できなかった銘柄: " + ", ".join(data.failed_symbols))
     return lines
 
 
@@ -161,6 +178,11 @@ class ReportData:
     swing_picks: list[dict]
     failed_symbols: list[str]
     as_of: date | None = None  # date of the latest price bar ("prices as of")
+    decisions: list = field(default_factory=list)  # list[HoldingDecision](保有分、買い順位順)
+    allocation: AllocationPlan | None = None  # ポート全体の配分計画(保有+新規候補)
+    stance: str | None = None  # 市場の5段階スタンス(強気〜弱気)
+    rebalance: RebalancePlan | None = None  # 保有比率の是正(現在→推奨)
+    conclusion: DailyConclusion | None = None  # 本日の結論(3行)+何もしない判定
 
     def is_empty(self) -> bool:
         return not self.snapshot and not self.summaries and not self.swing_picks
@@ -200,21 +222,28 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
     regime = current_market_regime() if strategy_stats else None
 
     summaries = []
+    decisions: list[HoldingDecision] = []
     failed_symbols = []
     for holding in holdings:
         try:
-            summary = build_summary(_analyze_with_retry(holding), sentiment, vix, benchmark_momentum)
+            analysis = _analyze_with_retry(holding)
+            summary = build_summary(analysis, sentiment, vix, benchmark_momentum)
             summary.backtest = stats_for_score(backtest, summary.price_score)
             summary.strategy_stats = stats_for_strategy(
                 strategy_stats, summary.strategies_active, regime
             )
             summary.horizons = horizon_expectations(backtest, summary.price_score)
             summaries.append(summary)
+            decisions.append(
+                build_decision(summary, analysis, expected_returns(summary, analysis, backtest))
+            )
         except Exception:
             failed_symbols.append(holding.symbol)
     summaries.sort(key=lambda s: s.raw_score, reverse=True)
+    decisions.sort(key=lambda d: d.overall_score, reverse=True)
 
     swing_picks: list[dict] = []
+    candidate_decisions: list[HoldingDecision] = []
     if include_swing_pick:
         try:
             picks = top_swing_picks()
@@ -234,8 +263,42 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
                     "reasons": candidate.reasons,
                 }
             )
+            # 新規候補も資金配分の対象にするため、保有と同じ精度で分析して判断化する。
+            try:
+                cand_holding = Holding(symbol=candidate.symbol, quantity=0, avg_cost=0.0, name=name)
+                cand_analysis = _analyze_with_retry(cand_holding)
+                cand_summary = build_summary(cand_analysis, sentiment, vix, benchmark_momentum)
+                cand_summary.horizons = horizon_expectations(backtest, cand_summary.price_score)
+                cand_decision = build_decision(
+                    cand_summary, cand_analysis, expected_returns(cand_summary, cand_analysis, backtest)
+                )
+                cand_decision.is_candidate = True
+                candidate_decisions.append(cand_decision)
+            except Exception:
+                pass
 
-    return ReportData(sentiment, snapshot, summaries, swing_picks, failed_symbols, as_of)
+    # 保有＋新規候補をまとめてポート最適化(買い優先順位・資金配分)。
+    allocation = optimize_allocation(decisions + candidate_decisions, regime, vix)
+
+    # 保有比率の是正(現在→推奨)と、市場5段階スタンス、本日の結論を組み立てる。
+    quantities = {h.symbol: h.quantity for h in holdings}
+    rebalance = build_rebalance(decisions, quantities)
+    stance = market_stance(snapshot, vix) if snapshot else None
+    conclusion = build_conclusion(decisions, allocation, rebalance)
+
+    return ReportData(
+        sentiment,
+        snapshot,
+        summaries,
+        swing_picks,
+        failed_symbols,
+        as_of,
+        decisions=decisions,
+        allocation=allocation,
+        stance=stance,
+        rebalance=rebalance,
+        conclusion=conclusion,
+    )
 
 
 def flex_messages_from(data: ReportData) -> list[dict]:
@@ -259,11 +322,17 @@ def flex_messages_from(data: ReportData) -> list[dict]:
 
 
 def discord_embeds_from(data: ReportData) -> list[dict]:
-    """Render collected data into Discord embed objects."""
+    """Render collected data into Discord embed objects (意思決定UI)."""
     embeds: list[dict] = []
+    # 最優先: 本日の結論(今日買う/売る/現金比率/「何もしない」)。
+    if data.conclusion is not None:
+        embeds.append(conclusion_embed(data.conclusion))
     if data.snapshot:
-        embeds.append(market_embed(data.sentiment, data.snapshot, data.as_of))
-    embeds.extend(holding_embed(summary) for summary in data.summaries)
+        embeds.append(market_embed(data.sentiment, data.snapshot, data.as_of, data.stance))
+    # ポート全体の判断(買い優先順位・資金配分・リバランス)。銘柄カードはその後に続く。
+    if data.allocation is not None and (data.decisions or data.allocation.weights):
+        embeds.append(manager_embed(data.allocation, data.rebalance))
+    embeds.extend(holding_embed(decision) for decision in data.decisions)
     if data.swing_picks:
         embeds.append(swing_embed(data.swing_picks))
     if data.failed_symbols:
@@ -291,6 +360,15 @@ def main() -> None:
         "--summary", action="store_true", help="LINE通知用の要約レポートを表示する(既定は詳細レポート)"
     )
     args = parser.parse_args()
+
+    # Windows の既定コンソール(cp932)は絵文字/罫線でクラッシュするため UTF-8 に寄せる。
+    # 通知経路(Discord/LINE は HTTP/JSON=UTF-8)には無関係で、ローカル表示だけの保険。
+    try:
+        import sys
+
+        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+    except Exception:
+        pass
 
     holdings = load_portfolio(args.portfolio)
     report = generate_summary(holdings) if args.summary else generate_report(holdings)

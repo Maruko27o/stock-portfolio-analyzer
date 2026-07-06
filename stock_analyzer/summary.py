@@ -4,6 +4,14 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from stock_analyzer.analysis import HoldingAnalysis
+from stock_analyzer.config import (  # noqa: F401  (後方互換の再エクスポート)
+    CATEGORY_CAPS,
+    DEFAULT_PBR_THRESHOLD,
+    DEFAULT_PER_THRESHOLD,
+    SECTOR_PBR_THRESHOLD,
+    SECTOR_PER_THRESHOLD,
+)
+from stock_analyzer import model_store
 from stock_analyzer.indicators import evaluate_macd
 
 # Selling within this many days before the ex-dividend date forfeits the dividend,
@@ -20,43 +28,8 @@ class Signal:
     category: str = "other"
 
 
-# Per-category score caps. Trend indicators (SMA alignment, MACD, momentum…) all
-# measure much the same thing and would otherwise stack to ±30+ in a trending
-# market, drowning out fundamentals. Capping each category keeps one aspect from
-# dominating the 0-100 score.
-CATEGORY_CAPS = {"technical": 20, "fundamental": 18, "dividend": 6, "market": 8}
-
-# Sector-typical valuation baselines (yfinance sector names). Banks trade at
-# PER<10/PBR<0.7 in normal times while growth sectors run far higher, so a flat
-# PER15/PBR1 cutoff mislabels both.
-SECTOR_PER_THRESHOLD = {
-    "Financial Services": 10,
-    "Energy": 10,
-    "Utilities": 12,
-    "Basic Materials": 12,
-    "Real Estate": 12,
-    "Industrials": 15,
-    "Consumer Cyclical": 15,
-    "Consumer Defensive": 18,
-    "Communication Services": 18,
-    "Healthcare": 22,
-    "Technology": 25,
-}
-DEFAULT_PER_THRESHOLD = 15
-SECTOR_PBR_THRESHOLD = {
-    "Financial Services": 0.7,
-    "Energy": 0.8,
-    "Utilities": 0.8,
-    "Basic Materials": 1.0,
-    "Real Estate": 1.2,
-    "Industrials": 1.3,
-    "Consumer Cyclical": 1.3,
-    "Consumer Defensive": 1.8,
-    "Communication Services": 1.8,
-    "Healthcare": 2.5,
-    "Technology": 3.0,
-}
-DEFAULT_PBR_THRESHOLD = 1.0
+# カテゴリ上限・セクター別の割安基準は config.py へ移設した(上でインポート)。
+# 後方互換のため名前はこのモジュールからも引き続き参照できる。
 
 
 @dataclass
@@ -104,74 +77,75 @@ def build_signals(
     """
     signals: list[Signal] = []
     price = analysis.current_price
+    w = model_store.technical_weights()  # 重みの単一出所(backtestと共有)
 
     # --- Technical ---
     if price is not None and analysis.sma_mid is not None:
         if price > analysis.sma_mid:
-            signals.append(Signal(8, "25日線を上抜け", "technical"))
+            signals.append(Signal(w["sma25"], "25日線を上抜け", "technical"))
         else:
-            signals.append(Signal(-8, "25日線を下回る", "technical"))
+            signals.append(Signal(-w["sma25"], "25日線を下回る", "technical"))
 
     if analysis.sma_short is not None and analysis.sma_mid is not None and analysis.sma_long is not None:
         if analysis.sma_short > analysis.sma_mid > analysis.sma_long:
-            signals.append(Signal(5, "移動平均線が上昇配列", "technical"))
+            signals.append(Signal(w["ma_align"], "移動平均線が上昇配列", "technical"))
         elif analysis.sma_short < analysis.sma_mid < analysis.sma_long:
-            signals.append(Signal(-5, "移動平均線が下降配列", "technical"))
+            signals.append(Signal(-w["ma_align"], "移動平均線が下降配列", "technical"))
 
     macd_signal = evaluate_macd(analysis.macd_result)
     if macd_signal == "ゴールデンクロス":
-        signals.append(Signal(10, "MACDゴールデンクロス", "technical"))
+        signals.append(Signal(w["macd_cross"], "MACDゴールデンクロス", "technical"))
     elif macd_signal == "デッドクロス":
-        signals.append(Signal(-10, "MACDデッドクロス", "technical"))
+        signals.append(Signal(-w["macd_cross"], "MACDデッドクロス", "technical"))
     elif macd_signal == "上昇中":
-        signals.append(Signal(4, "MACD上昇中", "technical"))
+        signals.append(Signal(w["macd_trend"], "MACD上昇中", "technical"))
     elif macd_signal == "下降中":
-        signals.append(Signal(-4, "MACD下降中", "technical"))
+        signals.append(Signal(-w["macd_trend"], "MACD下降中", "technical"))
 
     if analysis.rsi is not None:
         if analysis.rsi <= 30:
-            signals.append(Signal(8, f"RSI{analysis.rsi:.0f}で売られすぎ(反発期待)", "technical"))
+            signals.append(Signal(w["rsi_extreme"], f"RSI{analysis.rsi:.0f}で売られすぎ(反発期待)", "technical"))
         elif analysis.rsi >= 70:
-            signals.append(Signal(-8, f"RSI{analysis.rsi:.0f}で買われすぎ", "technical"))
+            signals.append(Signal(-w["rsi_extreme"], f"RSI{analysis.rsi:.0f}で買われすぎ", "technical"))
 
     if "強い上昇" in analysis.volume_price_signal:
-        signals.append(Signal(6, "出来高増加を伴う上昇", "technical"))
+        signals.append(Signal(w["vol_strong_up"], "出来高増加を伴う上昇", "technical"))
     elif "勢い弱い" in analysis.volume_price_signal:
-        signals.append(Signal(-2, "上昇も出来高が細る", "technical"))
+        signals.append(Signal(-w["vol_weak_up"], "上昇も出来高が細る", "technical"))
     elif "強い下落" in analysis.volume_price_signal:
-        signals.append(Signal(-6, "出来高増加を伴う下落", "technical"))
+        signals.append(Signal(-w["vol_strong_down"], "出来高増加を伴う下落", "technical"))
     elif "下げ渋り" in analysis.volume_price_signal:
-        signals.append(Signal(2, "下落だが出来高は減少", "technical"))
+        signals.append(Signal(w["vol_dip"], "下落だが出来高は減少", "technical"))
 
     if analysis.levels is not None and price is not None:
         if price >= analysis.levels.resistance:
-            signals.append(Signal(5, "レジスタンスを突破", "technical"))
+            signals.append(Signal(w["sr_break"], "レジスタンスを突破", "technical"))
         elif price <= analysis.levels.support:
-            signals.append(Signal(-5, "サポートを割れ", "technical"))
+            signals.append(Signal(-w["sr_break"], "サポートを割れ", "technical"))
 
     if analysis.bollinger is not None:
         if analysis.bollinger >= 2:
-            signals.append(Signal(-3, "ボリンジャーバンド上限で過熱", "technical"))
+            signals.append(Signal(-w["bb"], "ボリンジャーバンド上限で過熱", "technical"))
         elif analysis.bollinger <= -2:
-            signals.append(Signal(3, "ボリンジャーバンド下限で反発期待", "technical"))
+            signals.append(Signal(w["bb"], "ボリンジャーバンド下限で反発期待", "technical"))
 
     if analysis.momentum is not None:
         if analysis.momentum >= 10:
-            signals.append(Signal(6, f"直近10日で+{analysis.momentum:.0f}%の強い上昇", "technical"))
+            signals.append(Signal(w["mom_strong"], f"直近10日で+{analysis.momentum:.0f}%の強い上昇", "technical"))
         elif analysis.momentum >= 3:
-            signals.append(Signal(3, f"直近10日で+{analysis.momentum:.0f}%上昇", "technical"))
+            signals.append(Signal(w["mom_mild"], f"直近10日で+{analysis.momentum:.0f}%上昇", "technical"))
         elif analysis.momentum <= -10:
-            signals.append(Signal(-6, f"直近10日で{analysis.momentum:.0f}%下落", "technical"))
+            signals.append(Signal(-w["mom_strong"], f"直近10日で{analysis.momentum:.0f}%下落", "technical"))
         elif analysis.momentum <= -3:
-            signals.append(Signal(-3, "直近10日で下落", "technical"))
+            signals.append(Signal(-w["mom_mild"], "直近10日で下落", "technical"))
 
     # Own strength vs the market: a rise that just tracks the index is tide, not skill.
     if analysis.momentum is not None and benchmark_momentum is not None:
         relative = analysis.momentum - benchmark_momentum
         if relative >= 5:
-            signals.append(Signal(4, f"市場平均より強い(+{relative:.0f}%)", "technical"))
+            signals.append(Signal(w["rel"], f"市場平均より強い(+{relative:.0f}%)", "technical"))
         elif relative <= -5:
-            signals.append(Signal(-4, f"市場平均より弱い({relative:.0f}%)", "technical"))
+            signals.append(Signal(-w["rel"], f"市場平均より弱い({relative:.0f}%)", "technical"))
 
     # --- Fundamental ---
     per_threshold = SECTOR_PER_THRESHOLD.get(analysis.sector, DEFAULT_PER_THRESHOLD)
@@ -232,8 +206,9 @@ def build_signals(
             signals.append(Signal(-3, "短期の支払い能力に注意", "fundamental"))
 
     # --- Dividend ---
+    dw = model_store.DIVIDEND_WEIGHTS
     if analysis.dividend_yield is not None and analysis.dividend_yield >= 3.0:
-        signals.append(Signal(3, f"高配当利回り{analysis.dividend_yield:.1f}%", "dividend"))
+        signals.append(Signal(dw["high_yield"], f"高配当利回り{analysis.dividend_yield:.1f}%", "dividend"))
     if (
         analysis.days_to_ex_dividend is not None
         and 1 <= analysis.days_to_ex_dividend <= DIVIDEND_HOLD_WINDOW_DAYS
@@ -242,21 +217,22 @@ def build_signals(
         label = f"配当権利落ちまであと{analysis.days_to_ex_dividend}日"
         if analysis.dividend_yield is not None:
             label += f"(利回り{analysis.dividend_yield:.1f}%)"
-        signals.append(Signal(4, label, "dividend"))
+        signals.append(Signal(dw["ex_div_near"], label, "dividend"))
 
     # --- Market ---
+    mw = model_store.MARKET_WEIGHTS
     if market_sentiment == "強気":
-        signals.append(Signal(5, "市場全体が上昇基調", "market"))
+        signals.append(Signal(mw["sentiment"], "市場全体が上昇基調", "market"))
     elif market_sentiment == "弱気":
-        signals.append(Signal(-5, "市場全体が下落基調", "market"))
+        signals.append(Signal(-mw["sentiment"], "市場全体が下落基調", "market"))
 
     if vix is not None:
         if vix >= 30:
-            signals.append(Signal(-8, f"VIX{vix:.0f}でリスクオフ(買い抑制)", "market"))
+            signals.append(Signal(-mw["vix_high"], f"VIX{vix:.0f}でリスクオフ(買い抑制)", "market"))
         elif vix >= 25:
-            signals.append(Signal(-4, f"VIX{vix:.0f}で警戒水準", "market"))
+            signals.append(Signal(-mw["vix_warn"], f"VIX{vix:.0f}で警戒水準", "market"))
         elif vix <= 15:
-            signals.append(Signal(2, f"VIX{vix:.0f}で市場は安定", "market"))
+            signals.append(Signal(mw["vix_calm"], f"VIX{vix:.0f}で市場は安定", "market"))
 
     return signals
 
