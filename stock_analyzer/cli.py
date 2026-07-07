@@ -32,7 +32,6 @@ from stock_analyzer.discord import (
     holding_embed,
     manager_embed,
     market_embed,
-    review_embed,
     revision_embed,
     swing_embed,
 )
@@ -62,8 +61,8 @@ from stock_analyzer.market import (
 )
 from stock_analyzer.portfolio import Holding, load_portfolio
 from stock_analyzer.rebalance import RebalancePlan, build_rebalance, format_rebalance_lines
-from stock_analyzer.review import format_review_lines, rule_based_review
-from stock_analyzer import self_improve
+from stock_analyzer.review import rule_based_review
+from stock_analyzer import self_improve, self_score
 from stock_analyzer.optimize import char_count, optimize_embeds, optimize_lines, reduction_pct
 from stock_analyzer.screener import load_universe, prescreen_symbols
 from stock_analyzer.scoring import evaluate_recommendation, total_score
@@ -157,8 +156,7 @@ def render_summary_text(data: "ReportData") -> list[str]:
     if data.revisions:
         lines.extend(self_improve.format_revision_lines(data.revisions))
         lines.append("")
-    lines.extend(format_review_lines(data.review))
-    lines.append("")
+    # レビュー内容は表示しない(自己採点AIで内部処理済み)。
     if data.failed_symbols:
         lines.append("⚠️ 取得できなかった銘柄: " + ", ".join(data.failed_symbols))
 
@@ -206,8 +204,9 @@ class ReportData:
     stance: str | None = None  # 市場の5段階スタンス(強気〜弱気)
     rebalance: RebalancePlan | None = None  # 保有比率の是正(現在→推奨)
     conclusion: DailyConclusion | None = None  # 本日の結論(3行)+何もしない判定
-    review: list = field(default_factory=list)  # レビューAIの改善点(改修後の残指摘。空=改善不要)
+    review: list = field(default_factory=list)  # レビューAIの改善点(内部保持・非表示)
     revisions: list = field(default_factory=list)  # 自己改修AIが適用した修正のログ
+    self_score: dict = field(default_factory=dict)  # 自己採点AIの10項目スコア(内部保持・非表示)
 
     def is_empty(self) -> bool:
         return not self.snapshot and not self.summaries and not self.swing_picks
@@ -423,15 +422,14 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
     data.review = rule_based_review(data)
     # 自己改修AI: レビュー指摘を分析へ反映(矛盾のみ修正・点数/売買判定を再計算)。
     data.revisions = self_improve.improve(decisions, candidate_decisions)
-    if data.revisions:
-        # 判断が変わったので配分・リバランス・結論を再計算し、整合を取り直す。
-        data.allocation = optimize_allocation(decisions + candidate_decisions, regime, vix)
-        data.rebalance = build_rebalance(decisions, quantities)
-        data.conclusion = build_conclusion(decisions, data.allocation, data.rebalance)
-        # スイングTOP3(swing_picks)も改修後の並びで作り直す。
-        data.swing_picks = _rebuild_swing_picks(candidate_decisions, decisions)
-        # 改修後に残る指摘(理想は「改善不要」)を最終レビューとして持つ。
-        data.review = rule_based_review(data)
+    # 自己採点AI: 10項目を自己採点し、90点未満の項目だけを最大5回自動修正する。
+    data.self_score = self_score.refine(decisions, candidate_decisions, data.allocation)
+    # 改修・採点で判断/文章が変わったので、配分・リバランス・結論・候補を再計算して整合を取る。
+    data.allocation = optimize_allocation(decisions + candidate_decisions, regime, vix)
+    data.rebalance = build_rebalance(decisions, quantities)
+    data.conclusion = build_conclusion(decisions, data.allocation, data.rebalance)
+    data.swing_picks = _rebuild_swing_picks(candidate_decisions, decisions)
+    data.review = rule_based_review(data)  # 内部保持のみ(表示しない)
     return data
 
 
@@ -488,10 +486,9 @@ def discord_embeds_from(data: ReportData) -> list[dict]:
     embeds.extend(holding_embed(decision) for decision in data.decisions)
     if data.swing_picks:
         embeds.append(swing_embed(data.swing_picks))
-    # 自己改修AIが直した内容(あれば)→ 反映後のレビュー(理想は「改善不要」)。
+    # 自己改修AIが直した内容(あれば)を添える。レビュー内容は表示しない(自己採点で内部処理済み)。
     if data.revisions:
         embeds.append(revision_embed(data.revisions))
-    embeds.append(review_embed(data.review))
     if data.failed_symbols:
         embeds.append(failed_embed(data.failed_symbols))
 
