@@ -1,8 +1,45 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from stock_analyzer import config, summary
+
+
+def test_apply_tuning_overrides_scalar_and_partial_dict(tmp_path):
+    original_cap = config.ALLOC_NAME_CAP
+    original_caps = dict(config.CATEGORY_CAPS)
+    try:
+        path = tmp_path / "tuning.json"
+        path.write_text(
+            json.dumps({"ALLOC_NAME_CAP": 0.25, "CATEGORY_CAPS": {"valuation": 25}}),
+            encoding="utf-8",
+        )
+        applied = config.apply_tuning_overrides(path)
+        assert applied == {"ALLOC_NAME_CAP": 0.25, "CATEGORY_CAPS": {"valuation": 25}}
+        assert config.ALLOC_NAME_CAP == 0.25
+        assert config.CATEGORY_CAPS["valuation"] == 25  # 部分上書き
+        assert config.CATEGORY_CAPS["technical"] == original_caps["technical"]  # 他は保持
+    finally:
+        config.ALLOC_NAME_CAP = original_cap
+        config.CATEGORY_CAPS.clear()
+        config.CATEGORY_CAPS.update(original_caps)
+
+
+def test_apply_tuning_overrides_ignores_unknown_and_bad(tmp_path):
+    original_cap = config.ALLOC_NAME_CAP
+    # 未知キーは無視
+    p1 = tmp_path / "a.json"
+    p1.write_text(json.dumps({"UNKNOWN_KEY": 1, "__import__": "x"}), encoding="utf-8")
+    assert config.apply_tuning_overrides(p1) == {}
+    # 壊れたJSONでも例外にならず既定値のまま
+    p2 = tmp_path / "b.json"
+    p2.write_text("{not valid json", encoding="utf-8")
+    assert config.apply_tuning_overrides(p2) == {}
+    # 存在しないファイル
+    assert config.apply_tuning_overrides(tmp_path / "nope.json") == {}
+    assert config.ALLOC_NAME_CAP == original_cap
 
 
 def test_summary_reexports_config_constants():

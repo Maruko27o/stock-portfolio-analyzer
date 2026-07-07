@@ -8,8 +8,14 @@ import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from stock_analyzer.cli import collect_report_data, discord_embeds_from, flex_messages_from
+from stock_analyzer.cli import (
+    collect_report_data,
+    discord_embeds_from,
+    flex_messages_from,
+    render_summary_text,
+)
 from stock_analyzer.discord import send_discord
+from stock_analyzer.review import llm_review
 from stock_analyzer.judgment_log import append_judgments
 from stock_analyzer.market_calendar import is_market_closed
 from stock_analyzer.notifier import broadcast_messages
@@ -94,7 +100,15 @@ def main() -> None:
         data = collect_report_data(holdings)  # fetched once, rendered per channel
 
     if discord_url:
-        send_discord(discord_url, discord_embeds_from(data))
+        embeds = discord_embeds_from(data)
+        # 任意: ANTHROPIC_API_KEY があれば、Claude によるレビューAIの所見も添える(無ければ無料のまま)。
+        review_text = llm_review("\n".join(render_summary_text(data)))
+        if review_text:
+            embeds.append(
+                {"title": "🤖 レビューAI(Claude)", "description": review_text[:4000], "color": 0xE67E22}
+            )
+            print("レビューAI(Claude)の所見を添付しました")
+        send_discord(discord_url, embeds)
         print("Discordへの通知を送信しました")
     if line_token:
         broadcast_messages(flex_messages_from(data), line_token)
