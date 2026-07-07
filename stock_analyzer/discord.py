@@ -232,6 +232,28 @@ def manager_embed(
     }
 
 
+def review_embed(findings: list) -> dict:
+    """レビューAI(自己点検)の改善点。指摘が無ければ「改善不要」。"""
+    if not findings:
+        return {
+            "title": "🔍 レビュー(自己点検)",
+            "description": "改善不要",
+            "color": _color_int("#2ECC71"),
+        }
+    lines: list[str] = []
+    for f in findings[:10]:  # 多すぎると読めないので上位のみ
+        head = f"**[{f.category}]**" + (f" {f.symbol}" if f.symbol else "")
+        lines.append(f"{head} {f.issue}")
+        lines.append(f"　なぜ: {f.why}")
+        lines.append(f"　直し方: {f.fix}")
+    extra = f"\n…ほか{len(findings) - 10}件" if len(findings) > 10 else ""
+    return {
+        "title": f"🔍 レビュー(自己点検)｜改善点 {len(findings)}件",
+        "description": "\n".join(lines) + extra,
+        "color": _color_int("#E67E22"),
+    }
+
+
 def swing_embed(picks: list[dict]) -> dict:
     blocks = []
     for index, pick in enumerate(picks, start=1):

@@ -32,6 +32,7 @@ from stock_analyzer.discord import (
     holding_embed,
     manager_embed,
     market_embed,
+    review_embed,
     swing_embed,
 )
 from stock_analyzer.fundamentals import (
@@ -60,6 +61,7 @@ from stock_analyzer.market import (
 )
 from stock_analyzer.portfolio import Holding, load_portfolio
 from stock_analyzer.rebalance import RebalancePlan, build_rebalance, format_rebalance_lines
+from stock_analyzer.review import format_review_lines, rule_based_review
 from stock_analyzer.screener import load_universe, prescreen_symbols
 from stock_analyzer.scoring import evaluate_recommendation, total_score
 from stock_analyzer.summary import (
@@ -132,14 +134,8 @@ def generate_report(holdings: list[Holding]) -> list[str]:
     return lines
 
 
-def generate_summary(holdings: list[Holding], include_swing_pick: bool = True) -> list[str]:
-    """Build the concise decision report (AIファンドマネージャー判断) as plain text.
-
-    ポート全体の判断(買い優先順位・資金配分)を先頭に、各銘柄の最小カードを続ける。
-    Discord の意思決定UIと同じ内容をローカル確認できるようにする。
-    """
-    data = collect_report_data(holdings, include_swing_pick=include_swing_pick)
-
+def render_summary_text(data: "ReportData") -> list[str]:
+    """収集済み ReportData を要約テキストへ整形する(再取得しない)。LLMレビュー等でも再利用。"""
     lines: list[str] = []
     if data.conclusion is not None:
         lines.extend(format_conclusion_lines(data.conclusion))
@@ -155,9 +151,20 @@ def generate_summary(holdings: list[Holding], include_swing_pick: bool = True) -
     for decision in data.decisions:
         lines.extend(format_decision_lines(decision))
         lines.append("")
+    lines.extend(format_review_lines(data.review))
+    lines.append("")
     if data.failed_symbols:
         lines.append("⚠️ 取得できなかった銘柄: " + ", ".join(data.failed_symbols))
     return lines
+
+
+def generate_summary(holdings: list[Holding], include_swing_pick: bool = True) -> list[str]:
+    """Build the concise decision report (AIファンドマネージャー判断) as plain text.
+
+    ポート全体の判断(買い優先順位・資金配分)を先頭に、各銘柄の最小カードを続ける。
+    Discord の意思決定UIと同じ内容をローカル確認できるようにする。
+    """
+    return render_summary_text(collect_report_data(holdings, include_swing_pick=include_swing_pick))
 
 
 def _analyze_with_retry(holding: Holding, attempts: int = 2, delay: float = 8.0) -> HoldingAnalysis:
@@ -187,6 +194,7 @@ class ReportData:
     stance: str | None = None  # 市場の5段階スタンス(強気〜弱気)
     rebalance: RebalancePlan | None = None  # 保有比率の是正(現在→推奨)
     conclusion: DailyConclusion | None = None  # 本日の結論(3行)+何もしない判定
+    review: list = field(default_factory=list)  # レビューAIの改善点(空=改善不要)
 
     def is_empty(self) -> bool:
         return not self.snapshot and not self.summaries and not self.swing_picks
@@ -385,7 +393,7 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
     stance = market_stance(snapshot, vix) if snapshot else None
     conclusion = build_conclusion(decisions, allocation, rebalance)
 
-    return ReportData(
+    data = ReportData(
         sentiment,
         snapshot,
         summaries,
@@ -398,6 +406,9 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
         rebalance=rebalance,
         conclusion=conclusion,
     )
+    # レビューAI(自己点検): 分析結果の矛盾・過大評価・説明不足を洗い出す(無料・決定論的)。
+    data.review = rule_based_review(data)
+    return data
 
 
 def flex_messages_from(data: ReportData) -> list[dict]:
@@ -434,6 +445,8 @@ def discord_embeds_from(data: ReportData) -> list[dict]:
     embeds.extend(holding_embed(decision) for decision in data.decisions)
     if data.swing_picks:
         embeds.append(swing_embed(data.swing_picks))
+    # レビューAI(自己点検)の指摘。指摘が無ければ「改善不要」を表示。
+    embeds.append(review_embed(data.review))
     if data.failed_symbols:
         embeds.append(failed_embed(data.failed_symbols))
 
