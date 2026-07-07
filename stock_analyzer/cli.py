@@ -5,7 +5,12 @@ import time
 from dataclasses import dataclass, field
 from datetime import date
 
-from stock_analyzer.allocation import AllocationPlan, format_allocation_lines, optimize_allocation
+from stock_analyzer.allocation import (
+    AllocationPlan,
+    format_allocation_lines,
+    optimize_allocation,
+    priority_value,
+)
 from stock_analyzer.analysis import HoldingAnalysis, analyze_holding
 from stock_analyzer.conclusion import DailyConclusion, build_conclusion, format_conclusion_lines
 from stock_analyzer.backtest_stats import (
@@ -18,7 +23,6 @@ from stock_analyzer.backtest_stats import (
 from stock_analyzer.decision import HoldingDecision, build_decision, format_decision_lines
 from stock_analyzer.horizon_model import expected_returns
 from stock_analyzer.data_fetcher import (
-    fetch_fundamentals,
     fetch_price_history,
     split_confirmed_history,
 )
@@ -56,7 +60,7 @@ from stock_analyzer.market import (
 )
 from stock_analyzer.portfolio import Holding, load_portfolio
 from stock_analyzer.rebalance import RebalancePlan, build_rebalance, format_rebalance_lines
-from stock_analyzer.screener import build_swing_section, top_swing_picks
+from stock_analyzer.screener import load_universe, prescreen_symbols
 from stock_analyzer.scoring import evaluate_recommendation, total_score
 from stock_analyzer.summary import (
     build_summary,
@@ -206,6 +210,49 @@ def _benchmark_context() -> tuple[float | None, date | None]:
         return None, None
 
 
+# スイング候補の本格分析ファネルの規模。第1段(安価スクリーン)は全銘柄、第2段
+# (ファンダ取得を伴う本格分析)は上位この数だけに絞り、取得回数・実行時間を抑える。
+SCREEN_STAGE2_LIMIT = 24
+SWING_TOP_N = 3
+
+
+def _enriched_summary(
+    analysis: HoldingAnalysis,
+    sentiment: str,
+    vix: float | None,
+    benchmark_momentum: float | None,
+    backtest: dict | None,
+    strategy_stats: dict | None,
+    regime: str | None,
+):
+    """保有・監視・新規候補を問わず、1銘柄の要約(スコア+統計+期間別実績)を作る。"""
+    summary = build_summary(analysis, sentiment, vix, benchmark_momentum)
+    summary.backtest = stats_for_score(backtest, summary.price_score)
+    summary.strategy_stats = stats_for_strategy(strategy_stats, summary.strategies_active, regime)
+    summary.horizons = horizon_expectations(backtest, summary.price_score)
+    return summary
+
+
+def _decision_from(summary, analysis: HoldingAnalysis, backtest: dict | None) -> HoldingDecision:
+    """要約+分析から最終判断(HoldingDecision)を組み立てる。保有株と同じロジック。"""
+    return build_decision(summary, analysis, expected_returns(summary, analysis, backtest))
+
+
+def _candidate_reasons(decision: HoldingDecision) -> list[str]:
+    """注目候補カードに出す、保有株と同じ観点(割安・成長・期待リターン)の根拠。"""
+    bits = [f"{decision.overall_stars} {decision.action}"]
+    if decision.discount_pct is not None:
+        bits.append(f"割安率 {decision.discount_pct:+.1f}%")
+    long_term = next(
+        (h for h in decision.expected_returns if h.label == "半年〜1年" and h.pct is not None),
+        None,
+    )
+    if long_term is not None:
+        basis = "検証" if long_term.basis == "検証実績" else "推定"
+        bits.append(f"半年〜1年 期待 {long_term.pct:+.1f}%({basis})")
+    return bits
+
+
 def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True) -> ReportData:
     """Fetch and compute everything once, tolerating individual failures."""
     snapshot: dict | None = None
@@ -221,67 +268,84 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
     strategy_stats = load_strategy_stats()
     regime = current_market_regime() if strategy_stats else None
 
-    summaries = []
-    decisions: list[HoldingDecision] = []
+    # 保有(数量あり)と監視銘柄(数量なし=未保有だが分析だけしたい)を分けて扱う。
+    held = [h for h in holdings if not h.is_watch]
+    watch = [h for h in holdings if h.is_watch]
+
+    summaries = []  # 保有のみ(判断ログ・LINEに使う)
+    decisions: list[HoldingDecision] = []  # 保有カード+監視カードとして表示する分
     failed_symbols = []
-    for holding in holdings:
+    for holding in held:
         try:
             analysis = _analyze_with_retry(holding)
-            summary = build_summary(analysis, sentiment, vix, benchmark_momentum)
-            summary.backtest = stats_for_score(backtest, summary.price_score)
-            summary.strategy_stats = stats_for_strategy(
-                strategy_stats, summary.strategies_active, regime
-            )
-            summary.horizons = horizon_expectations(backtest, summary.price_score)
-            summaries.append(summary)
-            decisions.append(
-                build_decision(summary, analysis, expected_returns(summary, analysis, backtest))
+            summary = _enriched_summary(
+                analysis, sentiment, vix, benchmark_momentum, backtest, strategy_stats, regime
             )
         except Exception:
             failed_symbols.append(holding.symbol)
+            continue
+        summaries.append(summary)  # 要約は先に確定(判断生成に失敗しても保有は表示する)
+        try:
+            decisions.append(_decision_from(summary, analysis, backtest))
+        except Exception:
+            pass
+
+    # 監視銘柄も保有株と同じロジックで判断化する。カードは出すが保有損益・税は付かない。
+    for holding in watch:
+        try:
+            analysis = _analyze_with_retry(holding)
+            summary = _enriched_summary(
+                analysis, sentiment, vix, benchmark_momentum, backtest, strategy_stats, regime
+            )
+            decision = _decision_from(summary, analysis, backtest)
+        except Exception:
+            failed_symbols.append(holding.symbol)
+            continue
+        decision.is_candidate = True  # 未保有=候補扱い(リバランス/売却対象からは外れる)
+        decisions.append(decision)
+
     summaries.sort(key=lambda s: s.raw_score, reverse=True)
     decisions.sort(key=lambda d: d.overall_score, reverse=True)
 
+    # スイング(新規)候補: 全銘柄を安価にスクリーン→上位のみ保有株と同じ本格分析(ファネル)。
     swing_picks: list[dict] = []
     candidate_decisions: list[HoldingDecision] = []
     if include_swing_pick:
+        exclude = {h.symbol.upper() for h in holdings}
         try:
-            picks = top_swing_picks()
+            symbols = prescreen_symbols(load_universe(), n=SCREEN_STAGE2_LIMIT, exclude=exclude)
         except Exception:
-            picks = []
-        for candidate in picks:
+            symbols = []
+        for symbol in symbols:
             try:
-                name = fetch_fundamentals(candidate.symbol)["name"]
-            except Exception:
-                name = None
-            heading = f"{candidate.symbol} {name}" if name else candidate.symbol
-            swing_picks.append(
-                {
-                    "heading": heading,
-                    "score": candidate.score,
-                    "current_price": candidate.current_price,
-                    "reasons": candidate.reasons,
-                }
-            )
-            # 新規候補も資金配分の対象にするため、保有と同じ精度で分析して判断化する。
-            try:
-                cand_holding = Holding(symbol=candidate.symbol, quantity=0, avg_cost=0.0, name=name)
-                cand_analysis = _analyze_with_retry(cand_holding)
-                cand_summary = build_summary(cand_analysis, sentiment, vix, benchmark_momentum)
-                cand_summary.horizons = horizon_expectations(backtest, cand_summary.price_score)
-                cand_decision = build_decision(
-                    cand_summary, cand_analysis, expected_returns(cand_summary, cand_analysis, backtest)
+                analysis = _analyze_with_retry(Holding(symbol=symbol, quantity=0, avg_cost=0.0))
+                cand_summary = _enriched_summary(
+                    analysis, sentiment, vix, benchmark_momentum, backtest, strategy_stats, regime
                 )
+                cand_decision = _decision_from(cand_summary, analysis, backtest)
                 cand_decision.is_candidate = True
                 candidate_decisions.append(cand_decision)
             except Exception:
                 pass
+        # 保有株と同じ「割安×成長×期待リターン」の優先度で並べ、TOP3を注目候補に。
+        candidate_decisions.sort(key=priority_value, reverse=True)
+        for cand in candidate_decisions[:SWING_TOP_N]:
+            heading = f"{cand.symbol} {cand.name}" if cand.name else cand.symbol
+            swing_picks.append(
+                {
+                    "heading": heading,
+                    "score": cand.overall_score,
+                    "current_price": cand.current_price,
+                    "reasons": _candidate_reasons(cand),
+                }
+            )
 
-    # 保有＋新規候補をまとめてポート最適化(買い優先順位・資金配分)。
+    # 保有＋監視＋新規候補をまとめてポート最適化(買い優先順位・資金配分)。
     allocation = optimize_allocation(decisions + candidate_decisions, regime, vix)
 
     # 保有比率の是正(現在→推奨)と、市場5段階スタンス、本日の結論を組み立てる。
-    quantities = {h.symbol: h.quantity for h in holdings}
+    # リバランスは保有(数量あり)のみが対象。監視・候補は is_candidate で自動的に外れる。
+    quantities = {h.symbol: h.quantity for h in held}
     rebalance = build_rebalance(decisions, quantities)
     stance = market_stance(snapshot, vix) if snapshot else None
     conclusion = build_conclusion(decisions, allocation, rebalance)

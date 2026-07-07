@@ -3,11 +3,33 @@ from unittest.mock import patch
 import pandas as pd
 
 from stock_analyzer.screener import (
+    SwingCandidate,
+    prescreen_symbols,
     screen_universe,
     swing_score,
     top_swing_pick,
     top_swing_picks,
 )
+
+
+def test_prescreen_symbols_returns_top_n_by_raw_score():
+    fake = [
+        SwingCandidate("A.T", raw_score=90, reasons=[], current_price=1.0),
+        SwingCandidate("B.T", raw_score=70, reasons=[], current_price=1.0),
+        SwingCandidate("C.T", raw_score=110, reasons=[], current_price=1.0),
+    ]
+    with patch("stock_analyzer.screener.screen_universe", return_value=fake):
+        assert prescreen_symbols(["A.T", "B.T", "C.T"], n=2) == ["C.T", "A.T"]
+
+
+def test_prescreen_symbols_excludes_given():
+    fake = [
+        SwingCandidate("A.T", raw_score=90, reasons=[], current_price=1.0),
+        SwingCandidate("C.T", raw_score=110, reasons=[], current_price=1.0),
+    ]
+    with patch("stock_analyzer.screener.screen_universe", return_value=fake):
+        # 保有/監視の C.T は候補から除外される
+        assert prescreen_symbols(["A.T", "C.T"], n=5, exclude={"c.t"}) == ["A.T"]
 
 
 def _series(closes):

@@ -18,8 +18,23 @@ from stock_analyzer.indicators import (
     volume_trend,
 )
 
-UNIVERSE_FILE = Path(__file__).parent / "data" / "nikkei225.txt"
+_DATA_DIR = Path(__file__).parent / "data"
+
+
+def _default_universe_file() -> Path:
+    """既定のスクリーニング対象ファイル。TOPIX500(universe.txt)があれば優先。
+
+    universe.txt は scripts/build_universe.py が JPX から生成する。未生成の環境でも
+    動くよう、無ければ従来の日経225にフォールバックする。
+    """
+    topix500 = _DATA_DIR / "universe.txt"
+    return topix500 if topix500.exists() else _DATA_DIR / "nikkei225.txt"
+
+
+UNIVERSE_FILE = _default_universe_file()
 MIN_HISTORY = 30
+# 一括ダウンロードの1リクエストあたり銘柄数。500銘柄規模でも取りこぼしにくいよう分割する。
+DOWNLOAD_CHUNK = 150
 
 
 @dataclass
@@ -143,15 +158,42 @@ def swing_score(
 
 
 def _download_history(tickers: list[str], period: str = "6mo"):
-    """Bulk-download OHLCV history for many tickers in a single request."""
-    return yf.download(
-        tickers,
-        period=period,
-        group_by="ticker",
-        auto_adjust=True,
-        progress=False,
-        threads=True,
-    )
+    """Bulk-download OHLCV history for many tickers, chunking large universes.
+
+    500銘柄規模を1リクエストで取ると取りこぼしやすいので、DOWNLOAD_CHUNK ごとに
+    分割して取得し、横方向に結合する。失敗したチャンクは飛ばして残りで続行する。
+    """
+    import pandas as pd
+
+    if len(tickers) <= DOWNLOAD_CHUNK:
+        return yf.download(
+            tickers,
+            period=period,
+            group_by="ticker",
+            auto_adjust=True,
+            progress=False,
+            threads=True,
+        )
+
+    frames = []
+    for start in range(0, len(tickers), DOWNLOAD_CHUNK):
+        chunk = tickers[start : start + DOWNLOAD_CHUNK]
+        try:
+            frames.append(
+                yf.download(
+                    chunk,
+                    period=period,
+                    group_by="ticker",
+                    auto_adjust=True,
+                    progress=False,
+                    threads=True,
+                )
+            )
+        except Exception:
+            continue
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, axis=1)
 
 
 def screen_universe(tickers: list[str]) -> list[SwingCandidate]:
@@ -198,6 +240,24 @@ def top_swing_pick(tickers: list[str] | None = None) -> SwingCandidate | None:
     """Return the single highest-scoring swing candidate, or None if none qualify."""
     picks = top_swing_picks(tickers, n=1)
     return picks[0] if picks else None
+
+
+def prescreen_symbols(
+    tickers: list[str] | None = None,
+    n: int = 24,
+    exclude: set[str] | None = None,
+) -> list[str]:
+    """ファネル第1段: 安価な価格スクリーンで有望上位 n 銘柄の「コード」だけ返す。
+
+    全銘柄の値動きは一括ダウンロードで高速に採点し、上位のみを第2段(本格分析=
+    ファンダ取得)に渡すことで、TOPIX500規模でも取得回数・実行時間を抑える。
+    `exclude` に保有/監視銘柄を渡すと候補から除外する(重複表示を防ぐ)。
+    """
+    universe = tickers if tickers is not None else load_universe()
+    exclude_set = {s.upper() for s in (exclude or set())}
+    candidates = [c for c in screen_universe(universe) if c.symbol.upper() not in exclude_set]
+    candidates.sort(key=lambda c: c.raw_score, reverse=True)
+    return [c.symbol for c in candidates[:n]]
 
 
 def _price(value: float | None) -> str:

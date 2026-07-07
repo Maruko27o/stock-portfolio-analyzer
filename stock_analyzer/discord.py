@@ -125,6 +125,8 @@ def holding_embed(decision: HoldingDecision) -> dict:
     裏側の全指標は CLI の詳細レポートに残す。
     """
     heading = f"{decision.symbol} {decision.name}" if decision.name else decision.symbol
+    # 監視銘柄(未保有)は「監視」を明示。保有カードと区別する。
+    watch_tag = "🔍監視 " if decision.is_candidate else ""
     rank = f"（買い順位 {decision.rank}位）" if decision.rank else ""
 
     # 総合スコア + ★
@@ -165,7 +167,7 @@ def holding_embed(decision: HoldingDecision) -> dict:
         parts.append(f"💬 {decision.comment}")
 
     return {
-        "title": f"{ACTION_EMOJI.get(decision.action, '⚪')} {heading} — {decision.action}",
+        "title": f"{ACTION_EMOJI.get(decision.action, '⚪')} {watch_tag}{heading} — {decision.action}",
         "description": "\n".join(parts),
         "color": _color_int(ACTION_COLOR.get(decision.action, "#95A5A6")),
     }
@@ -238,9 +240,12 @@ def swing_embed(picks: list[dict]) -> dict:
             f"**{index}. {pick['heading']}　{pick['score']}点**\n"
             f"現在: {_price(pick['current_price'])}\n{reasons}"
         )
-    disclaimer = "※保有していない銘柄です。機械的スコアによる候補で、値上がりを保証するものではありません。"
+    disclaimer = (
+        "※保有していない銘柄です。多数の銘柄を絞り込み、保有株と同じ観点(割安×成長×期待リターン)で"
+        "分析した上位候補ですが、値上がりを保証するものではありません。"
+    )
     return {
-        "title": "🔎 注目候補（スイング）TOP3",
+        "title": "🔎 新規の買い候補（割安×成長）TOP3",
         "description": "\n\n".join(blocks) + "\n\n" + disclaimer,
         "color": _color_int("#16A085"),
     }
