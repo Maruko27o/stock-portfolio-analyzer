@@ -5,7 +5,52 @@ from stock_analyzer.portfolio import (
     load_portfolio_from_sheet,
     normalize_account,
     normalize_symbol,
+    parse_amount,
 )
+
+
+def test_parse_amount_handles_blanks_and_separators():
+    assert parse_amount("100") == 100.0
+    assert parse_amount("1,000") == 1000.0
+    assert parse_amount(" 3000 ") == 3000.0
+    assert parse_amount("") is None
+    assert parse_amount(None) is None
+    assert parse_amount("abc") is None
+
+
+def test_load_portfolio_skips_incomplete_rows(tmp_path):
+    # 数量/取得単価が未入力の行があっても例外にせずスキップし、残りは読み込む
+    csv_path = tmp_path / "portfolio.csv"
+    csv_path.write_text(
+        "symbol,quantity,avg_cost,name\n"
+        "7203.T,100,3000,トヨタ\n"
+        "6758.T,,13000,ソニー\n"  # quantity 空欄 → スキップ
+        "9432.T,10,,NTT\n",  # avg_cost 空欄 → スキップ
+        encoding="utf-8",
+    )
+    holdings = load_portfolio(str(csv_path))
+    assert [h.symbol for h in holdings] == ["7203.T"]
+
+
+def test_load_portfolio_from_sheet_skips_incomplete_rows():
+    from unittest.mock import MagicMock, patch
+
+    mock_worksheet = MagicMock()
+    mock_worksheet.get_all_records.return_value = [
+        {"symbol": "7203.T", "quantity": "100", "avg_cost": "3000"},
+        {"symbol": "6758.T", "quantity": "", "avg_cost": "13000"},  # 数量空欄
+        {"symbol": "9432.T", "quantity": "10", "avg_cost": ""},  # 単価空欄
+    ]
+    mock_client = MagicMock()
+    mock_client.open_by_key.return_value.sheet1 = mock_worksheet
+
+    with patch(
+        "stock_analyzer.portfolio.gspread.service_account_from_dict",
+        return_value=mock_client,
+    ):
+        holdings = load_portfolio_from_sheet("dummy-sheet-id", {"fake": "creds"})
+
+    assert [h.symbol for h in holdings] == ["7203.T"]
 
 
 def test_normalize_account_variants():
