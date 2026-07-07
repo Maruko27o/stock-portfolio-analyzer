@@ -43,7 +43,7 @@ def test_generate_flex_skips_failed_holdings_and_notes_them():
     ), patch(
         "stock_analyzer.cli.build_summary",
         side_effect=lambda a, s, *rest: _summary(a.symbol, 60),
-    ), patch("stock_analyzer.cli.top_swing_picks", return_value=[]):
+    ), patch("stock_analyzer.cli.prescreen_symbols", return_value=[]):
         messages = generate_flex_messages(holdings)
 
     text_notes = [m for m in messages if m.get("type") == "text"]
@@ -62,7 +62,7 @@ def test_generate_flex_survives_market_failure():
     ), patch(
         "stock_analyzer.cli.build_summary",
         side_effect=lambda a, s, *rest: _summary(a.symbol, 60),
-    ), patch("stock_analyzer.cli.top_swing_picks", return_value=[]):
+    ), patch("stock_analyzer.cli.prescreen_symbols", return_value=[]):
         messages = generate_flex_messages(holdings)
 
     assert any(m.get("type") == "flex" for m in messages)
@@ -76,7 +76,7 @@ def test_generate_flex_raises_when_everything_fails():
     ), patch("stock_analyzer.cli._benchmark_context", return_value=(None, None)), patch(
         "stock_analyzer.cli.analyze_holding", side_effect=RuntimeError("rate limited")
     ), patch(
-        "stock_analyzer.cli.top_swing_picks", return_value=[]
+        "stock_analyzer.cli.prescreen_symbols", return_value=[]
     ):
         with pytest.raises(RuntimeError):
             generate_flex_messages(holdings)

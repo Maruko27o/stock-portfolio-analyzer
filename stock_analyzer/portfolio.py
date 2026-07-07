@@ -15,6 +15,11 @@ class Holding:
     name: str | None = None
     account: str = "特定"  # "NISA" | "特定"。税最適化(tax.py)で口座別に扱う
 
+    @property
+    def is_watch(self) -> bool:
+        """数量が無い=保有していない「監視銘柄」。分析だけ行い、保有損益・税は出さない。"""
+        return not self.quantity or self.quantity <= 0
+
 
 def _row_name(row: dict) -> str | None:
     """Return the optional 'name' column value, or None if absent/blank."""
@@ -53,10 +58,10 @@ def parse_amount(value) -> float | None:
         return None
 
 
-def _warn_skipped(skipped: list[str]) -> None:
-    if skipped:
+def _note_watch(watch: list[str]) -> None:
+    if watch:
         print(
-            "保有の数量/取得単価が未入力のためスキップした銘柄: " + ", ".join(skipped),
+            "数量未入力のため監視銘柄(未保有)として分析する銘柄: " + ", ".join(watch),
             file=sys.stderr,
         )
 
@@ -75,31 +80,45 @@ def normalize_symbol(raw: str) -> str:
 
 
 def load_portfolio(path: str) -> list[Holding]:
-    """Load holdings from a CSV file with columns: symbol,quantity,avg_cost[,name]."""
+    """Load holdings from a CSV file with columns: symbol,quantity,avg_cost[,name,account].
+
+    数量が未入力の行は「監視銘柄」(未保有・分析のみ)として読み込む。
+    """
     holdings: list[Holding] = []
-    skipped: list[str] = []
+    watch: list[str] = []
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
             symbol = str(row.get("symbol", "") or "").strip()
             if not symbol:
                 continue
-            quantity = parse_amount(row.get("quantity"))
-            avg_cost = parse_amount(row.get("avg_cost"))
-            if quantity is None or avg_cost is None:
-                skipped.append(symbol)  # 数量/単価が未入力の行は飛ばす(通知は落とさない)
-                continue
-            holdings.append(
-                Holding(
-                    symbol=normalize_symbol(symbol),
-                    quantity=quantity,
-                    avg_cost=avg_cost,
-                    name=_row_name(row),
-                    account=normalize_account(row.get("account")),
-                )
-            )
-    _warn_skipped(skipped)
+            holding, is_watch = _row_to_holding(row, symbol)
+            if is_watch:
+                watch.append(symbol)
+            holdings.append(holding)
+    _note_watch(watch)
     return holdings
+
+
+def _row_to_holding(row: dict, symbol: str) -> tuple[Holding, bool]:
+    """1行を Holding へ。数量が未入力なら「監視銘柄」(数量0)として扱う。
+
+    数量が空欄=保有していないが分析だけしたい銘柄。取得単価が空欄なら0とし、
+    保有損益・税は自動的に非表示になる(profit_pct/tax 側でガード済み)。
+    """
+    quantity = parse_amount(row.get("quantity"))
+    avg_cost = parse_amount(row.get("avg_cost"))
+    is_watch = quantity is None or quantity <= 0
+    return (
+        Holding(
+            symbol=normalize_symbol(symbol),
+            quantity=quantity or 0.0,
+            avg_cost=avg_cost or 0.0,
+            name=_row_name(row),
+            account=normalize_account(row.get("account")),
+        ),
+        is_watch,
+    )
 
 
 def load_portfolio_from_sheet(sheet_id: str, service_account_info: dict) -> list[Holding]:
@@ -108,29 +127,20 @@ def load_portfolio_from_sheet(sheet_id: str, service_account_info: dict) -> list
     `service_account_info` is the parsed JSON key of a Google service account
     that has been granted read access to the sheet; the sheet is not public.
     The optional `name` column lets you set a custom (e.g. Japanese) display name.
+    数量が未入力の行は「監視銘柄」(未保有・分析のみ)として読み込む。
     """
     client = gspread.service_account_from_dict(service_account_info)
     worksheet = client.open_by_key(sheet_id).sheet1
 
     holdings: list[Holding] = []
-    skipped: list[str] = []
+    watch: list[str] = []
     for row in worksheet.get_all_records():
         symbol = str(row.get("symbol", "")).strip()
         if not symbol:
             continue
-        quantity = parse_amount(row.get("quantity"))
-        avg_cost = parse_amount(row.get("avg_cost"))
-        if quantity is None or avg_cost is None:
-            skipped.append(symbol)  # 数量/単価が未入力の行は飛ばす(通知は落とさない)
-            continue
-        holdings.append(
-            Holding(
-                symbol=normalize_symbol(symbol),
-                quantity=quantity,
-                avg_cost=avg_cost,
-                name=_row_name(row),
-                account=normalize_account(row.get("account")),
-            )
-        )
-    _warn_skipped(skipped)
+        holding, is_watch = _row_to_holding(row, symbol)
+        if is_watch:
+            watch.append(symbol)
+        holdings.append(holding)
+    _note_watch(watch)
     return holdings

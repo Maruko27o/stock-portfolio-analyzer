@@ -18,28 +18,32 @@ def test_parse_amount_handles_blanks_and_separators():
     assert parse_amount("abc") is None
 
 
-def test_load_portfolio_skips_incomplete_rows(tmp_path):
-    # 数量/取得単価が未入力の行があっても例外にせずスキップし、残りは読み込む
+def test_load_portfolio_blank_quantity_becomes_watch(tmp_path):
+    # 数量未入力の行は「監視銘柄」(未保有・数量0)として読み込み、分析対象に含める
     csv_path = tmp_path / "portfolio.csv"
     csv_path.write_text(
         "symbol,quantity,avg_cost,name\n"
         "7203.T,100,3000,トヨタ\n"
-        "6758.T,,13000,ソニー\n"  # quantity 空欄 → スキップ
-        "9432.T,10,,NTT\n",  # avg_cost 空欄 → スキップ
+        "6758.T,,,ソニー\n"  # 数量・単価 空欄 → 監視銘柄
+        "9432.T,,4000,NTT\n",  # 数量 空欄 → 監視銘柄
         encoding="utf-8",
     )
     holdings = load_portfolio(str(csv_path))
-    assert [h.symbol for h in holdings] == ["7203.T"]
+    assert [h.symbol for h in holdings] == ["7203.T", "6758.T", "9432.T"]
+    held = {h.symbol: h for h in holdings}
+    assert held["7203.T"].is_watch is False
+    assert held["6758.T"].is_watch is True
+    assert held["6758.T"].quantity == 0.0
+    assert held["9432.T"].is_watch is True  # 単価だけ入れても数量が無ければ監視
 
 
-def test_load_portfolio_from_sheet_skips_incomplete_rows():
+def test_load_portfolio_from_sheet_blank_quantity_becomes_watch():
     from unittest.mock import MagicMock, patch
 
     mock_worksheet = MagicMock()
     mock_worksheet.get_all_records.return_value = [
         {"symbol": "7203.T", "quantity": "100", "avg_cost": "3000"},
-        {"symbol": "6758.T", "quantity": "", "avg_cost": "13000"},  # 数量空欄
-        {"symbol": "9432.T", "quantity": "10", "avg_cost": ""},  # 単価空欄
+        {"symbol": "6758.T", "quantity": "", "avg_cost": ""},  # 監視銘柄
     ]
     mock_client = MagicMock()
     mock_client.open_by_key.return_value.sheet1 = mock_worksheet
@@ -50,7 +54,8 @@ def test_load_portfolio_from_sheet_skips_incomplete_rows():
     ):
         holdings = load_portfolio_from_sheet("dummy-sheet-id", {"fake": "creds"})
 
-    assert [h.symbol for h in holdings] == ["7203.T"]
+    assert [h.symbol for h in holdings] == ["7203.T", "6758.T"]
+    assert holdings[1].is_watch is True
 
 
 def test_normalize_account_variants():
