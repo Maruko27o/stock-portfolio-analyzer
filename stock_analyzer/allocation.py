@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 from stock_analyzer import config
@@ -62,12 +63,17 @@ def _rank(decisions: list[HoldingDecision]) -> list[HoldingDecision]:
     return ranked
 
 
+def _is_num(v) -> bool:
+    """None・NaN を除外する(NaN が1つ混ざると加重平均全体が NaN になり "nan%" 表示になる)。"""
+    return v is not None and not math.isnan(v)
+
+
 def _weighted_avg(pairs: list[tuple[float, float | None]]) -> float | None:
-    """[(weight_frac, value)] の加重平均。value=None は除外。全部Noneなら None。"""
-    total_w = sum(w for w, v in pairs if v is not None)
+    """[(weight_frac, value)] の加重平均。None/NaN は除外。有効値が無ければ None。"""
+    total_w = sum(w for w, v in pairs if _is_num(v))
     if total_w <= 0:
         return None
-    return sum(w * v for w, v in pairs if v is not None) / total_w
+    return sum(w * v for w, v in pairs if _is_num(v)) / total_w
 
 
 def _diversification_note(sector_breakdown: dict[str, float], cash_pct: float, n_names: int) -> str:

@@ -45,6 +45,14 @@ def _decision(
     )
 
 
+def test_weighted_avg_skips_nan():
+    from stock_analyzer.allocation import _weighted_avg
+
+    # NaN が混ざっても全体が nan にならず、有効値だけで平均する
+    assert _weighted_avg([(0.5, 10.0), (0.5, float("nan"))]) == 10.0
+    assert _weighted_avg([(0.5, None), (0.5, float("nan"))]) is None
+
+
 def test_weights_and_cash_sum_to_100():
     decisions = [
         _decision("A.T", 90, sector="Technology"),
