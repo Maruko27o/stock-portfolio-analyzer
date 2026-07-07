@@ -10,6 +10,9 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 # ---------------------------------------------------------------------------
 # スコアリング(summary.build_signals)のカテゴリ上限
 # ---------------------------------------------------------------------------
@@ -122,3 +125,63 @@ def cash_floor(regime: str | None, vix: float | None) -> float:
     if vix is not None and vix >= VIX_RISK_OFF:
         floor = max(floor, VIX_RISK_OFF_CASH_FLOOR)
     return floor
+
+
+# ---------------------------------------------------------------------------
+# tuning.json による上書き(iPhoneからでもGitHub上でこの1ファイルを編集して調整可能)
+# ---------------------------------------------------------------------------
+# 分析のしきい値・重み・上限を、Pythonを書かずに JSON 1枚で調整できるようにする。
+# 例(stock_analyzer/data/tuning.json):
+#   {"ALLOC_NAME_CAP": 0.25, "CATEGORY_CAPS": {"valuation": 25}}
+# 誤設定で壊さないよう、上書きできるキーは許可リストに限定。壊れたJSONは無視して既定値。
+TUNING_FILE = Path(__file__).parent / "data" / "tuning.json"
+
+_OVERRIDABLE_KEYS = {
+    "CATEGORY_CAPS",
+    "SECTOR_PER_THRESHOLD",
+    "DEFAULT_PER_THRESHOLD",
+    "SECTOR_PBR_THRESHOLD",
+    "DEFAULT_PBR_THRESHOLD",
+    "HORIZON_WEIGHTS",
+    "ALLOC_SECTOR_CAP",
+    "ALLOC_NAME_CAP",
+    "ALLOC_MIN_SCORE",
+    "CASH_FLOOR_BY_REGIME",
+    "DEFAULT_CASH_FLOOR",
+    "VIX_RISK_OFF",
+    "VIX_RISK_OFF_CASH_FLOOR",
+}
+
+
+def apply_tuning_overrides(path: Path = TUNING_FILE) -> dict:
+    """tuning.json があれば許可キーのみ上書きする。適用した内容を返す(無ければ空)。
+
+    dict 型の設定は部分更新(既存キーを保ちつつ上書き)、スカラーは置き換え。
+    JSON が壊れていても例外にせず既定値のまま動く(通知を落とさない)。
+    """
+    try:
+        if not path.exists():
+            return {}
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+
+    applied: dict = {}
+    g = globals()
+    for key, value in data.items():
+        if key not in _OVERRIDABLE_KEYS or key not in g:
+            continue
+        current = g[key]
+        if isinstance(current, dict) and isinstance(value, dict):
+            current.update(value)  # 部分上書き(セクター基準などを一部だけ変えられる)
+            applied[key] = value
+        elif not isinstance(current, dict) and not isinstance(value, dict):
+            g[key] = value
+            applied[key] = value
+    return applied
+
+
+# import 時に一度だけ適用する。
+TUNING_APPLIED = apply_tuning_overrides()

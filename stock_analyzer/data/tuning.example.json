@@ -1,0 +1,12 @@
+{
+  "_note": "このファイルを tuning.json という名前でコピーすると、分析のしきい値をPythonを書かずに調整できます。使うキーだけ残してOK。壊れたJSONは無視され既定値で動きます。",
+  "_usage": "iPhoneのGitHubアプリ or github.dev でこの1ファイルを編集→コミット→次回の自動実行に反映。",
+  "ALLOC_NAME_CAP": 0.30,
+  "ALLOC_SECTOR_CAP": 0.35,
+  "ALLOC_MIN_SCORE": 45,
+  "DEFAULT_CASH_FLOOR": 0.20,
+  "CASH_FLOOR_BY_REGIME": { "上昇": 0.10, "横ばい": 0.20, "下落": 0.35 },
+  "CATEGORY_CAPS": { "technical": 20, "fundamental": 18, "dividend": 6, "market": 8, "valuation": 20 },
+  "DEFAULT_PER_THRESHOLD": 15,
+  "SECTOR_PER_THRESHOLD": { "Financial Services": 10, "Technology": 25 }
+}
