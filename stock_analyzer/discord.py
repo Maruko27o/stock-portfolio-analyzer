@@ -232,6 +232,21 @@ def manager_embed(
     }
 
 
+def revision_embed(revisions: list) -> dict:
+    """自己改修AI(レビュー反映済み)の変更点。無ければ表示しない側で判断。"""
+    lines: list[str] = []
+    for r in revisions[:12]:
+        head = f"**[{r.category}]**" + (f" {r.symbol}" if r.symbol else "")
+        lines.append(f"{head} {r.change}")
+        lines.append(f"　理由: {r.reason}")
+    extra = f"\n…ほか{len(revisions) - 12}件" if len(revisions) > 12 else ""
+    return {
+        "title": f"🔧 自己改修(レビュー反映済み)｜{len(revisions)}件修正",
+        "description": "\n".join(lines) + extra,
+        "color": _color_int("#9B59B6"),
+    }
+
+
 def review_embed(findings: list) -> dict:
     """レビューAI(自己点検)の改善点。指摘が無ければ「改善不要」。"""
     if not findings:
