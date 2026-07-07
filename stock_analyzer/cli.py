@@ -64,6 +64,7 @@ from stock_analyzer.portfolio import Holding, load_portfolio
 from stock_analyzer.rebalance import RebalancePlan, build_rebalance, format_rebalance_lines
 from stock_analyzer.review import format_review_lines, rule_based_review
 from stock_analyzer import self_improve
+from stock_analyzer.optimize import char_count, optimize_embeds, optimize_lines, reduction_pct
 from stock_analyzer.screener import load_universe, prescreen_symbols
 from stock_analyzer.scoring import evaluate_recommendation, total_score
 from stock_analyzer.summary import (
@@ -160,6 +161,12 @@ def render_summary_text(data: "ReportData") -> list[str]:
     lines.append("")
     if data.failed_symbols:
         lines.append("⚠️ 取得できなかった銘柄: " + ", ".join(data.failed_symbols))
+
+    # 最適化AI: 情報量を維持したまま圧縮(冗長表現の短縮・重複除去・箇条書き化)。
+    before = char_count(lines)
+    lines = optimize_lines(lines)
+    after = char_count(lines)
+    lines.append(f"⚙️ 最適化: {before}字→{after}字 (-{reduction_pct(before, after):.0f}%)")
     return lines
 
 
@@ -490,7 +497,8 @@ def discord_embeds_from(data: ReportData) -> list[dict]:
 
     if not embeds:
         raise RuntimeError("分析データを取得できませんでした（全銘柄・市場データの取得に失敗）")
-    return embeds
+    # 最適化AI: 情報量を維持したまま各カードの説明文を圧縮(トークン/文字数削減)。
+    return optimize_embeds(embeds)
 
 
 def generate_flex_messages(holdings: list[Holding], include_swing_pick: bool = True) -> list[dict]:
