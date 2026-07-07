@@ -1,0 +1,11 @@
+name = "discord-analyze"
+main = "src/worker.js"
+compatibility_date = "2024-09-23"
+
+# 公開してよい設定値。秘密(DISCORD_PUBLIC_KEY / GITHUB_TOKEN)は [vars] に書かず、
+# `npx wrangler secret put <名前>` で登録する(下の README 参照)。
+[vars]
+GITHUB_OWNER = "Maruko27o"
+GITHUB_REPO = "stock-portfolio-analyzer"
+WORKFLOW_FILE = "daily-report.yml"
+GITHUB_REF = "main"

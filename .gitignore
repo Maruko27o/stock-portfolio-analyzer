@@ -9,3 +9,9 @@ venv/
 .env
 *.env
 portfolio.csv
+
+# Node / Cloudflare Worker (discord-bot)
+node_modules/
+.wrangler/
+discord-bot/node_modules/
+discord-bot/.wrangler/
