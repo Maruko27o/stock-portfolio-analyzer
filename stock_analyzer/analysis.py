@@ -78,6 +78,8 @@ class HoldingAnalysis:
     sma_mid_prev10: float | None = None  # 10営業日前時点の25日線(レンジ判定用)
     target_mean_price: float | None = None  # アナリスト目標株価(平均)
     target_median_price: float | None = None  # アナリスト目標株価(中央値)
+    target_high_price: float | None = None  # アナリスト目標株価(最も強気)
+    target_low_price: float | None = None  # アナリスト目標株価(最も弱気)
     num_analysts: int | None = None  # アナリスト数(信頼度の材料)
     recommendation_mean: float | None = None  # 推奨平均(1=強い買い〜5=強い売り)
 
@@ -165,6 +167,8 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
         sma_mid_prev10=simple_moving_average(closes[:-10], SMA_MID) if len(closes) > 10 else None,
         target_mean_price=fundamentals["target_mean_price"],
         target_median_price=fundamentals["target_median_price"],
+        target_high_price=fundamentals.get("target_high_price"),
+        target_low_price=fundamentals.get("target_low_price"),
         num_analysts=fundamentals["num_analysts"],
         recommendation_mean=fundamentals["recommendation_mean"],
     )

@@ -18,7 +18,12 @@ def fair_value(analysis: HoldingAnalysis) -> float | None:
     """
     candidates: list[float] = []
     if analysis.eps is not None and analysis.eps > 0:
-        candidates.append(config.per_threshold(analysis.sector) * analysis.eps)
+        per_based = config.per_threshold(analysis.sector) * analysis.eps
+        # PERモデルはアナリストの最強気目標を超えて割安を主張しない(上限クリップ)。
+        # 空運など構造的に低PERの業種で、一律のセクターPERが適正価格を過大にするのを防ぐ。
+        if analysis.target_high_price is not None and analysis.target_high_price > 0:
+            per_based = min(per_based, analysis.target_high_price)
+        candidates.append(per_based)
     if analysis.target_mean_price is not None and analysis.target_mean_price > 0:
         candidates.append(analysis.target_mean_price)
     if not candidates:

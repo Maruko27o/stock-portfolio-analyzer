@@ -58,6 +58,13 @@ def test_fair_value_blends_analyst_target():
     assert fair_value(a) == pytest.approx(3825.0)
 
 
+def test_fair_value_clips_per_model_to_analyst_high():
+    # PERモデル(15×250=3750)がアナリスト最強気3200を超える場合、3200にクリップ。
+    # 適正価格 = (3200 + 3100) / 2 = 3150
+    a = _analysis(eps=250.0, target_mean_price=3100.0, target_high_price=3200.0)
+    assert fair_value(a) == pytest.approx(3150.0)
+
+
 def test_fair_value_none_when_no_inputs():
     assert fair_value(_analysis(eps=None, target_mean_price=None)) is None
     assert fair_value(_analysis(eps=-10.0, target_mean_price=None)) is None
