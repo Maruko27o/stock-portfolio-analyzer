@@ -238,6 +238,34 @@ def _decision_from(summary, analysis: HoldingAnalysis, backtest: dict | None) ->
     return build_decision(summary, analysis, expected_returns(summary, analysis, backtest))
 
 
+def _company_key(decision: HoldingDecision) -> str:
+    """同一企業をまとめるキー。銘柄名(無ければコード)を正規化して使う。
+
+    国内株(9202.T)と米ADRなど、同じ会社が別コードで二重に並ぶのを防ぐ。
+    """
+    return (decision.name or decision.symbol).strip().lower()
+
+
+def _dedup_pref(decision: HoldingDecision) -> tuple:
+    """同一企業で残す1件を選ぶ優先度。保有 > 東証(.T) > スコア高。"""
+    return (
+        0 if decision.is_candidate else 1,  # 保有/監視カードを候補より優先
+        1 if decision.symbol.upper().endswith(".T") else 0,  # 本国(東証)上場を優先
+        decision.overall_score or 0,
+    )
+
+
+def _dedup_by_company(decisions: list[HoldingDecision]) -> list[HoldingDecision]:
+    """同一企業(名寄せ)は最優先の1件だけ残す。入力順は保つ。"""
+    best: dict[str, HoldingDecision] = {}
+    for d in decisions:
+        key = _company_key(d)
+        if key not in best or _dedup_pref(d) > _dedup_pref(best[key]):
+            best[key] = d
+    keep = set(id(d) for d in best.values())
+    return [d for d in decisions if id(d) in keep]
+
+
 def _candidate_reasons(decision: HoldingDecision) -> list[str]:
     """注目候補カードに出す、保有株と同じ観点(割安・成長・期待リターン)の根拠。"""
     bits = [f"{decision.overall_stars} {decision.action}"]
@@ -306,6 +334,7 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
 
     summaries.sort(key=lambda s: s.raw_score, reverse=True)
     decisions.sort(key=lambda d: d.overall_score, reverse=True)
+    decisions = _dedup_by_company(decisions)  # 同一企業(例: 国内株とADR)の二重掲載を防ぐ
 
     # スイング(新規)候補: 全銘柄を安価にスクリーン→上位のみ保有株と同じ本格分析(ファネル)。
     swing_picks: list[dict] = []
@@ -327,6 +356,12 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
                 candidate_decisions.append(cand_decision)
             except Exception:
                 pass
+        # 同一企業の重複を排除し、保有/監視で既に出ている企業は候補から外す。
+        held_companies = {_company_key(d) for d in decisions}
+        candidate_decisions = [
+            c for c in _dedup_by_company(candidate_decisions)
+            if _company_key(c) not in held_companies
+        ]
         # 保有株と同じ「割安×成長×期待リターン」の優先度で並べ、TOP3を注目候補に。
         candidate_decisions.sort(key=priority_value, reverse=True)
         for cand in candidate_decisions[:SWING_TOP_N]:

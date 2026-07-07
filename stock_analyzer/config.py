@@ -16,7 +16,7 @@ from __future__ import annotations
 # トレンド系指標(移動平均の並び・MACD・モメンタム…)は同じことを別角度で測って
 # いるだけで、放置すると上昇相場で±30以上に積み上がりファンダを飲み込む。
 # カテゴリごとに上限を設け、一側面がスコアを支配しないようにする。
-CATEGORY_CAPS = {"technical": 20, "fundamental": 18, "dividend": 6, "market": 8}
+CATEGORY_CAPS = {"technical": 20, "fundamental": 18, "dividend": 6, "market": 8, "valuation": 20}
 
 # ---------------------------------------------------------------------------
 # セクター別の割安基準(yfinance のセクター名)

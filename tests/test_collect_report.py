@@ -9,7 +9,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from stock_analyzer.cli import collect_report_data
+from stock_analyzer.cli import _dedup_by_company, collect_report_data
 from stock_analyzer.decision import HoldingDecision
 from stock_analyzer.horizon_model import HorizonExpectation
 from stock_analyzer.portfolio import Holding
@@ -80,6 +80,27 @@ def test_swing_top3_from_full_analysis_sorted_by_priority():
     joined = " ".join(data.swing_picks[0]["reasons"])
     assert "割安率" in joined
     assert "半年〜1年 期待" in joined
+
+
+def test_dedup_same_company_prefers_home_listing_and_held():
+    # 同一企業(国内株9202.TとADR)は1件に。保有/東証(.T)を優先。
+    tse = _decision("9202.T")
+    tse.name = "ANA Holdings Inc."
+    tse.is_candidate = False  # 保有
+    adr = _decision("ALNPY")
+    adr.name = "ANA Holdings Inc."
+    adr.is_candidate = True  # ADR候補
+    out = _dedup_by_company([adr, tse])
+    assert [d.symbol for d in out] == ["9202.T"]
+
+
+def test_dedup_distinct_companies_kept():
+    a = _decision("AAA")
+    a.name = "Alpha"
+    b = _decision("BBB")
+    b.name = "Beta"
+    out = _dedup_by_company([a, b])
+    assert {d.symbol for d in out} == {"AAA", "BBB"}
 
 
 def test_rebalance_only_targets_held_not_watch():
