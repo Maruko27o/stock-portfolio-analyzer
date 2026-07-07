@@ -64,18 +64,15 @@ def compress(text: str) -> str:
 
 
 def _dedup_keep_order(lines: list[str]) -> list[str]:
-    """③⑤ 完全一致の重複行を1回に(空行の連続もまとめる)。"""
+    """③⑤ すぐ隣の重複行を1回に(空行の連続もまとめる)。
+
+    連続重複のみを対象にする。銘柄カードの見出し(①結論 等)や、別銘柄が偶然同じ理由を
+    持つケースは正当な繰り返しなので消さない(全体一致で消すと構造が壊れる)。
+    """
     out: list[str] = []
-    seen_nonempty: set[str] = set()
     for line in lines:
-        if line == "":
-            if out and out[-1] == "":
-                continue
-            out.append("")
-            continue
-        if line in seen_nonempty:
-            continue  # 同じ行(同じ理由)は1回だけ
-        seen_nonempty.add(line)
+        if out and line == out[-1]:
+            continue  # 直前と同じ行(重複した理由/空行)は1回だけ
         out.append(line)
     return out
 

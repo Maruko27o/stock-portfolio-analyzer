@@ -20,7 +20,7 @@ from stock_analyzer.backtest_stats import (
     stats_for_score,
     stats_for_strategy,
 )
-from stock_analyzer.decision import HoldingDecision, build_decision, format_decision_lines
+from stock_analyzer.decision import HoldingDecision, build_decision
 from stock_analyzer.horizon_model import expected_returns
 from stock_analyzer.data_fetcher import (
     fetch_price_history,
@@ -29,10 +29,8 @@ from stock_analyzer.data_fetcher import (
 from stock_analyzer.discord import (
     conclusion_embed,
     failed_embed,
-    holding_embed,
     manager_embed,
     market_embed,
-    revision_embed,
     swing_embed,
 )
 from stock_analyzer.fundamentals import (
@@ -62,7 +60,13 @@ from stock_analyzer.market import (
 from stock_analyzer.portfolio import Holding, load_portfolio
 from stock_analyzer.rebalance import RebalancePlan, build_rebalance, format_rebalance_lines
 from stock_analyzer.review import rule_based_review
-from stock_analyzer import self_improve, self_score
+from stock_analyzer import self_improve, quality_gate
+from stock_analyzer.final_output import (
+    build_context,
+    confidence_header_embed,
+    final_card_lines,
+    final_embed,
+)
 from stock_analyzer.optimize import char_count, optimize_embeds, optimize_lines, reduction_pct
 from stock_analyzer.screener import load_universe, prescreen_symbols
 from stock_analyzer.scoring import evaluate_recommendation, total_score
@@ -150,13 +154,17 @@ def render_summary_text(data: "ReportData") -> list[str]:
     if data.rebalance is not None and data.rebalance.items:
         lines.extend(format_rebalance_lines(data.rebalance))
         lines.append("")
+    # ⑥ 最終出力(表示専用): 分析信頼度ヘッダー + 9セクションの銘柄カード。
+    pct, stars, reasons = data.confidence
+    lines.append(f"✅ 分析信頼度 {pct}% {stars}")
+    lines.extend(f"・{r}" for r in reasons)
+    lines.append("")
+    ctx = build_context(data)
     for decision in data.decisions:
-        lines.extend(format_decision_lines(decision))
+        lines.extend(final_card_lines(decision, ctx))
+        lines.append(f"⑨ 分析信頼度 {pct}% {stars}")
         lines.append("")
-    if data.revisions:
-        lines.extend(self_improve.format_revision_lines(data.revisions))
-        lines.append("")
-    # レビュー内容は表示しない(自己採点AIで内部処理済み)。
+    # レビュー内容は表示しない(品質ゲートで内部保証済み)。
     if data.failed_symbols:
         lines.append("⚠️ 取得できなかった銘柄: " + ", ".join(data.failed_symbols))
 
@@ -206,7 +214,9 @@ class ReportData:
     conclusion: DailyConclusion | None = None  # 本日の結論(3行)+何もしない判定
     review: list = field(default_factory=list)  # レビューAIの改善点(内部保持・非表示)
     revisions: list = field(default_factory=list)  # 自己改修AIが適用した修正のログ
-    self_score: dict = field(default_factory=dict)  # 自己採点AIの10項目スコア(内部保持・非表示)
+    gate_passed: bool = False  # 品質ゲート通過フラグ
+    gate_issues: list = field(default_factory=list)  # ゲートに残った問題(内部保持・非表示)
+    confidence: tuple = (0, "☆☆☆☆☆", [])  # 分析信頼度(%,★,理由)
 
     def is_empty(self) -> bool:
         return not self.snapshot and not self.summaries and not self.swing_picks
@@ -418,18 +428,30 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
         rebalance=rebalance,
         conclusion=conclusion,
     )
-    # レビューAI(自己点検): 分析結果の矛盾・過大評価・説明不足を洗い出す(無料・決定論的)。
+    # ② レビューAI(論理・整合性チェック)。
     data.review = rule_based_review(data)
-    # 自己改修AI: レビュー指摘を分析へ反映(矛盾のみ修正・点数/売買判定を再計算)。
+    # ③ 自己改修AI(レビュー反映): 矛盾のみ修正・点数/売買判定を再計算。
     data.revisions = self_improve.improve(decisions, candidate_decisions)
-    # 自己採点AI: 10項目を自己採点し、90点未満の項目だけを最大5回自動修正する。
-    data.self_score = self_score.refine(decisions, candidate_decisions, data.allocation)
-    # 改修・採点で判断/文章が変わったので、配分・リバランス・結論・候補を再計算して整合を取る。
-    data.allocation = optimize_allocation(decisions + candidate_decisions, regime, vix)
-    data.rebalance = build_rebalance(decisions, quantities)
-    data.conclusion = build_conclusion(decisions, data.allocation, data.rebalance)
-    data.swing_picks = _rebuild_swing_picks(candidate_decisions, decisions)
-    data.review = rule_based_review(data)  # 内部保持のみ(表示しない)
+
+    def _recompute() -> None:
+        # 判断/文章が変わったら配分・リバランス・結論・候補・レビューを取り直す。
+        data.allocation = optimize_allocation(decisions + candidate_decisions, regime, vix)
+        data.rebalance = build_rebalance(decisions, quantities)
+        data.conclusion = build_conclusion(decisions, data.allocation, data.rebalance)
+        data.swing_picks = _rebuild_swing_picks(candidate_decisions, decisions)
+        data.review = rule_based_review(data)
+
+    def _on_fix() -> None:
+        # 品質ゲートからの差し戻し: 自己改修AI(③)が直し、再計算する(ゲートは書き換えない)。
+        self_improve.improve(decisions, candidate_decisions)
+        _recompute()
+
+    _recompute()  # ③の初回改修を配分等へ反映
+    # ⑤ 品質ゲートAI(最終品質保証): 問題があれば③へ差し戻し、最大3回。通過分のみ⑥へ。
+    passed, _passes, issues = quality_gate.run_gate(data, _on_fix)
+    data.gate_passed = passed
+    data.gate_issues = issues
+    data.confidence = quality_gate.confidence(data)
     return data
 
 
@@ -483,12 +505,12 @@ def discord_embeds_from(data: ReportData) -> list[dict]:
     # ポート全体の判断(買い優先順位・資金配分・リバランス)。銘柄カードはその後に続く。
     if data.allocation is not None and (data.decisions or data.allocation.weights):
         embeds.append(manager_embed(data.allocation, data.rebalance))
-    embeds.extend(holding_embed(decision) for decision in data.decisions)
+    # ⑥ 最終出力AI(表示専用): 9セクションの銘柄カード。数値・判断は変更しない。
+    embeds.append(confidence_header_embed(data.confidence))
+    ctx = build_context(data)
+    embeds.extend(final_embed(decision, ctx, data.confidence) for decision in data.decisions)
     if data.swing_picks:
         embeds.append(swing_embed(data.swing_picks))
-    # 自己改修AIが直した内容(あれば)を添える。レビュー内容は表示しない(自己採点で内部処理済み)。
-    if data.revisions:
-        embeds.append(revision_embed(data.revisions))
     if data.failed_symbols:
         embeds.append(failed_embed(data.failed_symbols))
 
