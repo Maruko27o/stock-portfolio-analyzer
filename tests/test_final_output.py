@@ -51,22 +51,25 @@ def test_recommended_action_appends_earnings_wait():
 def test_final_card_has_all_sections_and_keeps_numbers():
     d = _decision()
     ctx = build_context(_View([d]))
-    text = "\n".join(final_card_lines(d, ctx))
-    for header in ["① 結論", "② 一言要約", "③ 推奨アクション", "④ 投資判断",
-                   "⑤ 最重要判断要因TOP3", "⑥ 根拠", "⑦ リスク", "⑧ 保有株コメント"]:
-        assert header in text
-    # 数値・判断は変更しない(そのまま載る)
+    lines = final_card_lines(d, ctx)
+    text = "\n".join(lines)
+    # コンパクト化しても分析上重要な数値は一切削らない [カテゴリ16]。
     assert "88点" in text
-    assert "★★★★★" in text
+    assert "★★★★☆" in text  # floor(88/20)=4 [カテゴリ12]
+    assert "-16.0%" in text  # 割安率
     assert "+18.0%" in text  # 長期期待
-    assert "資金配分 25%" in text
+    assert "判断理由" in text
+    assert "資金配分：25%" in text
+    # スマホ1画面向け: 1銘柄は目標行数(6〜8行)に収まる [カテゴリ16c]。
+    assert len(lines) <= 8
 
 
-def test_watch_has_no_holding_comment():
+def test_watch_card_is_tagged_and_compact():
     d = _decision(is_candidate=True)
     ctx = build_context(_View([d]))
-    text = "\n".join(final_card_lines(d, ctx))
-    assert "⑧ 保有株コメント" not in text  # 保有中のみ
+    lines = final_card_lines(d, ctx)
+    assert "🔍監視" in lines[0]  # 監視カードは見出しにタグ
+    assert len(lines) <= 8
 
 
 def test_build_context_market_avg():

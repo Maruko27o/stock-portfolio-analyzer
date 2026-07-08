@@ -10,14 +10,44 @@ from __future__ import annotations
 from stock_analyzer import config
 from stock_analyzer.analysis import HoldingAnalysis
 
+# [カテゴリ14] PER妥当性チェックの許容レンジ(同業種の目安PERに対する倍率)。
+# これを外れる(極端に小さい/大きい)PERは、EPSの単位/期間取り違えや欠損フォールバックの
+# 疑いがあるため「PER算出不可・要確認」として割安判定の根拠から自動除外する。
+PER_PLAUSIBLE_LOW_MULT = 1 / 3
+PER_PLAUSIBLE_HIGH_MULT = 3.0
+
+
+def per_is_plausible(per: float | None, sector: str | None) -> bool:
+    """正のPERが同業種の目安レンジ(1/3〜3倍)に収まっていれば True [カテゴリ14]。
+
+    None・非正(赤字/欠損)は「割安判定に使えない」ため False を返す(赤字は別経路で扱う)。
+    """
+    if per is None or per <= 0:
+        return False
+    typical = config.per_threshold(sector)
+    return typical * PER_PLAUSIBLE_LOW_MULT <= per <= typical * PER_PLAUSIBLE_HIGH_MULT
+
+
+def _implied_per(analysis: HoldingAnalysis) -> float | None:
+    """現在価格とEPSから逆算した実効PER(EPS単位/期間の妥当性チェック用)。"""
+    if analysis.eps is None or analysis.eps <= 0 or analysis.current_price is None:
+        return None
+    return analysis.current_price / analysis.eps
+
+
+def eps_based_fair_value_usable(analysis: HoldingAnalysis) -> bool:
+    """EPS由来の適正価格を使ってよいか(逆算PERが妥当レンジか) [カテゴリ14]。"""
+    return per_is_plausible(_implied_per(analysis), analysis.sector)
+
 
 def fair_value(analysis: HoldingAnalysis) -> float | None:
     """適正価格の目安。セクター標準PER×EPS と アナリスト目標株価平均の平均。
 
     どちらか一方しか取れなければそれを採用。両方欠損なら None。
+    [カテゴリ14] 逆算PERが異常値のときは、EPS(単位/期間の疑い)由来の候補を除外する。
     """
     candidates: list[float] = []
-    if analysis.eps is not None and analysis.eps > 0:
+    if analysis.eps is not None and analysis.eps > 0 and eps_based_fair_value_usable(analysis):
         per_based = config.per_threshold(analysis.sector) * analysis.eps
         # PERモデルはアナリストの最強気目標を超えて割安を主張しない(上限クリップ)。
         # 空運など構造的に低PERの業種で、一律のセクターPERが適正価格を過大にするのを防ぐ。

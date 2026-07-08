@@ -83,8 +83,11 @@ def _logic_findings(d: HoldingDecision) -> list[ReviewFinding]:
             "割高圏での買い増しは高値掴みのリスク。割安率と買い判断が矛盾している。",
             "買い方向にするなら割高分を相殺する強い成長/モメンタム根拠を明示。無ければ様子見へ格下げ。",
         ))
-    # 割安なのに売り
-    if d.discount_pct is not None and d.discount_pct <= -15 and d.action in SELL_ACTIONS:
+    # 割安なのに売り(ただしポート最適化由来のサイズ調整=sizing_trim は矛盾ではない)
+    if (
+        d.discount_pct is not None and d.discount_pct <= -15
+        and d.action in SELL_ACTIONS and not getattr(d, "sizing_trim", False)
+    ):
         out.append(ReviewFinding(
             "1.ロジック矛盾", d.symbol,
             f"割安(適正比{d.discount_pct:+.0f}%)なのに「{d.action}」",
@@ -107,8 +110,8 @@ def _logic_findings(d: HoldingDecision) -> list[ReviewFinding]:
             "期待リターンが負なのに買い。判断根拠が一貫していない。",
             "期待リターンの符号と最終判断を一致させる(負なら保有/様子見以下)。",
         ))
-    # スコアと判断
-    if d.overall_score >= 85 and d.action in SELL_ACTIONS:
+    # スコアと判断(ポート最適化由来のサイズ調整=sizing_trim は「質は高いが比率過大」で矛盾ではない)
+    if d.overall_score >= 85 and d.action in SELL_ACTIONS and not getattr(d, "sizing_trim", False):
         out.append(ReviewFinding(
             "1.ロジック矛盾", d.symbol,
             f"総合{d.overall_score}点(高)なのに「{d.action}」",

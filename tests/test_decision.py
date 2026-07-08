@@ -8,6 +8,7 @@ from stock_analyzer.decision import (
     dividend_stars,
     risk_reward,
     score_to_action,
+    stars_from_score,
     supply_demand_stars,
 )
 from stock_analyzer.horizon_model import expected_returns
@@ -112,7 +113,8 @@ def test_build_decision_integration():
 
     assert decision.symbol == "7203.T"
     assert decision.overall_score == summary.score
-    assert decision.overall_stars == score_to_action(summary.score)[0]
+    # ★は決定的関数(floor(score/20))から [カテゴリ12]。アクション帯の★では上書きしない。
+    assert decision.overall_stars == stars_from_score(summary.score)
     assert decision.action == score_to_action(summary.score)[1]
     assert decision.fair_value is not None
     assert decision.discount_pct is not None

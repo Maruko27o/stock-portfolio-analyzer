@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
-from stock_analyzer import config
+from stock_analyzer import config, valuation
 from stock_analyzer.analysis import HoldingAnalysis
 from stock_analyzer.config import (  # noqa: F401  (後方互換の再エクスポート)
     CATEGORY_CAPS,
@@ -160,6 +160,10 @@ def build_signals(
     if per_value is not None:
         if per_value <= 0:
             signals.append(Signal(-4, f"{per_label}マイナス(赤字)", "fundamental"))
+        elif not valuation.per_is_plausible(per_value, analysis.sector):
+            # [カテゴリ14] 同業種の目安から極端に外れるPERは異常値。割安判定に使わない
+            # (スコアへ加点しない)。要確認としてリスク側で明示する。
+            pass
         elif per_value <= per_threshold:
             signals.append(
                 Signal(6, f"{per_label}{per_value:.1f}で割安(セクター基準{per_threshold})", "fundamental")
@@ -539,6 +543,10 @@ def detect_risks(analysis: HoldingAnalysis) -> list[str]:
             f"流動比率{analysis.current_ratio:.2f}"
             f"(<{config.RISK_CURRENT_RATIO_MIN:.1f}・短期支払い能力に注意)"
         )
+    # [カテゴリ14] 正のPERが同業種目安から極端に外れる=異常値。割安根拠から除外済みである旨を明示。
+    per_value = analysis.forward_per if analysis.forward_per is not None else analysis.per
+    if per_value is not None and per_value > 0 and not valuation.per_is_plausible(per_value, analysis.sector):
+        risks.append(f"PER{per_value:.1f}は異常値の疑い(算出不可・要確認/割安判定から除外)")
 
     return risks
 

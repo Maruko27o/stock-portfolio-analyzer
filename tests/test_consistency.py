@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from stock_analyzer import consistency
 from stock_analyzer.allocation import AllocationPlan
-from stock_analyzer.decision import HoldingDecision
+from stock_analyzer.decision import HoldingDecision, stars_from_score
 from stock_analyzer.horizon_model import HorizonExpectation
 from stock_analyzer.rebalance import RebalanceItem, RebalancePlan
 
@@ -10,7 +10,7 @@ from stock_analyzer.rebalance import RebalanceItem, RebalancePlan
 def _decision(symbol="7203.T", score=75, action="買い増し", discount=-5.0, **kw) -> HoldingDecision:
     defaults = dict(
         name=kw.pop("name", symbol), current_price=1000.0, overall_score=score,
-        overall_stars="★★★★☆", action=action, fair_value=1050.0, discount_pct=discount,
+        overall_stars=stars_from_score(score), action=action, fair_value=1050.0, discount_pct=discount,
         risk_reward=2.0, supply_demand_stars="★★★☆☆", dividend_stars="★★★☆☆",
         dividend_yield=3.0, days_to_earnings=None, earnings_alert=False,
         expected_returns=[HorizonExpectation("半年〜1年", 12.0, "★★★", "中", "モデル推定", "r")],

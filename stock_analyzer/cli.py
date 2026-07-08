@@ -169,10 +169,10 @@ def render_summary_text(data: "ReportData") -> list[str]:
     # 必須の最終自動検証(7項目)の結果を明示する。
     lines.extend(consistency.format_lines(data.violations))
     lines.append("")
+    # 銘柄カードはコンパクト表示(見出しに信頼度を内包) [カテゴリ16]。
     ctx = build_context(data)
     for decision in data.decisions:
         lines.extend(final_card_lines(decision, ctx))
-        lines.append(f"⑨ 分析信頼度 {pct}% {stars}")
         lines.append("")
     # レビュー内容は表示しない(品質ゲートで内部保証済み)。
     if data.failed_symbols:

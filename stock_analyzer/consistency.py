@@ -21,7 +21,8 @@ from dataclasses import dataclass
 from stock_analyzer import aliases, config
 from stock_analyzer.allocation import priority_value
 from stock_analyzer.conclusion import BUY_ACTIONS
-from stock_analyzer.decision import HoldingDecision, score_to_action, star_count
+from stock_analyzer.decision import HoldingDecision, star_count, stars_from_score
+from stock_analyzer.display import should_show_allocation
 from stock_analyzer.final_output import _IMMEDIATE_LABELS, recommended_action
 
 
@@ -45,8 +46,16 @@ def _pool(data) -> list[HoldingDecision]:
     return pool
 
 
+SELL_SIDE = {"一部売却", "売却推奨"}
+NEUTRAL_SIDE = {"保有", "様子見"}
+
+
 def _check_action_vs_rebalance(data) -> list[ConsistencyViolation]:
-    """1. 個別カードのアクションとリバランス方向の矛盾(買い増しカード×縮小指示)。"""
+    """1/10. 個別カードのアクションとリバランス方向の矛盾を検出する。
+
+    - 買い/中立カード × 縮小指示(売却方向) → 矛盾
+    - 売りカード × 買い増し指示 → 矛盾
+    """
     out: list[ConsistencyViolation] = []
     rebalance = getattr(data, "rebalance", None)
     if rebalance is None:
@@ -56,10 +65,18 @@ def _check_action_vs_rebalance(data) -> list[ConsistencyViolation]:
         it = directions.get(d.symbol)
         if it is None:
             continue
-        if d.action in BUY_ACTIONS and it.direction == "売却":
+        card_reduce = d.action in SELL_SIDE
+        card_add = d.action in BUY_ACTIONS
+        if it.direction == "売却" and not card_reduce:
             out.append(ConsistencyViolation(
                 "1.方向矛盾", d.symbol,
                 f"個別カードは「{d.action}」だがリバランスは縮小"
+                f"({it.current_pct:.0f}%→{it.target_pct:.0f}%)",
+            ))
+        elif it.direction == "買い増し" and card_reduce and not card_add:
+            out.append(ConsistencyViolation(
+                "1.方向矛盾", d.symbol,
+                f"個別カードは「{d.action}」だがリバランスは買い増し"
                 f"({it.current_pct:.0f}%→{it.target_pct:.0f}%)",
             ))
     return out
@@ -80,23 +97,25 @@ def _check_overvalued(data) -> list[ConsistencyViolation]:
 
 
 def _check_ranking(data) -> list[ConsistencyViolation]:
-    """3. 買い順位が順位付けキー(スコア基準の priority_value)の降順と一致しているか。"""
+    """2/11. 買い順位が総合スコアの降順(調整は同点時のみ)と一致しているか。"""
     out: list[ConsistencyViolation] = []
     alloc = getattr(data, "allocation", None)
     if alloc is None or not alloc.ranking:
         return out
-    ranked = alloc.ranking
+    ranked = sorted(alloc.ranking, key=lambda d: (d.rank or 0))
     for prev, nxt in zip(ranked, ranked[1:]):
-        if (prev.rank or 0) < (nxt.rank or 0) and priority_value(prev) < priority_value(nxt) - 1e-9:
+        # 上位(rank小)の総合スコアが下位より低ければ、スコア降順に反する
+        if prev.overall_score < nxt.overall_score:
             out.append(ConsistencyViolation(
                 "3.順位不整合", nxt.symbol,
-                f"{nxt.symbol} が {prev.symbol} より上位だが順位キーは逆",
+                f"{nxt.symbol}({nxt.overall_score}点)が {prev.symbol}({prev.overall_score}点)"
+                "より下位だがスコアは上",
             ))
     return out
 
 
 def _check_stars(data) -> list[ConsistencyViolation]:
-    """4. スター表示がスコアと矛盾していないか(★は0〜5、スコア帯と一致)。"""
+    """3/12. 表示された★が決定的関数 stars_from_score の計算結果と完全一致しているか。"""
     out: list[ConsistencyViolation] = []
     for d in _pool(data):
         # 範囲外(6個以上)の★を構造的に検出
@@ -109,12 +128,25 @@ def _check_stars(data) -> list[ConsistencyViolation]:
                 out.append(ConsistencyViolation(
                     "4.スター範囲外", d.symbol, f"{label}★が6個以上({stars})",
                 ))
-        # 総合★はスコア帯の★と一致していること
-        expected = score_to_action(d.overall_score)[0]
+        # 総合★は決定的関数 floor(score/20) と完全一致していること [カテゴリ12]
+        expected = stars_from_score(d.overall_score)
         if d.overall_stars and d.overall_stars != expected:
             out.append(ConsistencyViolation(
                 "4.スター不一致", d.symbol,
-                f"{d.overall_score}点の帯★は{expected}だが表示は{d.overall_stars}",
+                f"{d.overall_score}点の決定的★は{expected}だが表示は{d.overall_stars}",
+            ))
+    return out
+
+
+def _check_allocation_display(data) -> list[ConsistencyViolation]:
+    """4/13. 非購入系アクションで資金配分が表示(非空欄)になっていないか。"""
+    out: list[ConsistencyViolation] = []
+    for d in _pool(data):
+        # 買い方向でないのに配分%が付いている(=表示されうる)状態は違反
+        if d.action not in BUY_ACTIONS and d.alloc_pct is not None and d.alloc_pct > 0:
+            out.append(ConsistencyViolation(
+                "13.配分表示", d.symbol,
+                f"非購入系「{d.action}」なのに資金配分{d.alloc_pct:.0f}%が付与されている",
             ))
     return out
 
@@ -146,6 +178,35 @@ def _check_duplicate_company(data) -> list[ConsistencyViolation]:
     return out
 
 
+def _check_per_validity(data) -> list[ConsistencyViolation]:
+    """5/14. PERが異常値の銘柄は「要確認」として明示され、割安根拠に使われていないか。"""
+    out: list[ConsistencyViolation] = []
+    for d in _pool(data):
+        if not getattr(d, "per_flagged", False):
+            continue
+        # 異常値PERは必ず「要確認」リスクとして表面化していること。
+        if not any("要確認" in r for r in d.risks):
+            out.append(ConsistencyViolation(
+                "14.PER異常", d.symbol, "PERが異常値だが『要確認』表示が無い",
+            ))
+    return out
+
+
+def _check_row_count(data) -> list[ConsistencyViolation]:
+    """7/16. 1銘柄カードの表示行数が目標範囲(6〜8行目安の上限)に収まっているか。"""
+    from stock_analyzer.final_output import CARD_MAX_LINES, build_context, card_line_count
+
+    out: list[ConsistencyViolation] = []
+    ctx = build_context(data)
+    for d in _pool(data):
+        n = card_line_count(d, ctx)
+        if n > CARD_MAX_LINES:
+            out.append(ConsistencyViolation(
+                "16.行数超過", d.symbol, f"カード行数{n}が目標上限{CARD_MAX_LINES}を超過",
+            ))
+    return out
+
+
 def _check_gate_wording(data) -> list[ConsistencyViolation]:
     """7. 品質ゲート未通過時に最上位アクション文言が出力されていないか。"""
     out: list[ConsistencyViolation] = []
@@ -167,8 +228,11 @@ CHECKS = (
     _check_overvalued,
     _check_ranking,
     _check_stars,
+    _check_allocation_display,
     _check_dates,
     _check_duplicate_company,
+    _check_per_validity,
+    _check_row_count,
     _check_gate_wording,
 )
 

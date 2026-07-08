@@ -1,13 +1,17 @@
-"""⑥ 最終出力AI: 表示専用。分析内容・点数・順位・数値・判断を一切変更しない。
+"""⑥ 最終出力(表示専用): 分析内容・点数・順位・数値・判断を一切変更しない。
 
-品質ゲート(⑤)を通過した分析を、ユーザーが3〜10秒で「買う/様子見/売る」を判断できる
-9セクションの決まった書式へ整形するだけ。数値の再計算や判断の変更は禁止(必要なら
-品質ゲートへ差し戻す=呼び出し側の責務)。重要情報を上に、簡潔・箇条書き・1項目100字以内。
+品質ゲートを通過した分析を、スマホ1画面で読み切れるコンパクトな1銘柄カードへ整形する
+[カテゴリ16]。分析の内部ロジック・計算過程は一切削らず、表示テンプレートのみ重複を統合する。
+
+削るのは「重複表示」だけ(結論/一言要約/推奨アクション/保有株コメントは1行へ、最重要
+判断要因と根拠は1つの箇条書きへ)。スコア・適正価格・割安率・期待リターン・判断理由・
+リスク・信頼度という分析上重要な要素は一切削除しない。目安は1銘柄6〜8行。
 """
 
 from __future__ import annotations
 
-from stock_analyzer.decision import SELL_ACTIONS, HoldingDecision
+from stock_analyzer.decision import SELL_ACTIONS, HoldingDecision, stars_from_score
+from stock_analyzer.display import format_yen, should_show_allocation
 
 # 6段階の内部アクション → ユーザー指定の推奨アクション語彙。
 _ACTION_LABEL = {
@@ -19,6 +23,10 @@ _ACTION_LABEL = {
     "売却推奨": "売却",
 }
 
+# 品質チェック未通過時に封じる即時アクション文言と、その代替(1段慎重側)。
+_IMMEDIATE_LABELS = {"今すぐ買う"}
+_GUARDED_LABEL = {"今すぐ買う": "分割買い・品質確認待ち"}
+
 
 def _long_term(d: HoldingDecision):
     return next((h for h in d.expected_returns if h.label == "半年〜1年"), None)
@@ -28,20 +36,16 @@ def _horizon(d: HoldingDecision, label: str):
     return next((h for h in d.expected_returns if h.label == label), None)
 
 
-# 品質チェック未通過時に封じる即時アクション文言と、その代替(1段慎重側)。
-_IMMEDIATE_LABELS = {"今すぐ買う"}
-_GUARDED_LABEL = {"今すぐ買う": "分割買い・品質確認待ち"}
-
-
 def recommended_action(d: HoldingDecision, guarded: bool = False) -> str:
-    """推奨アクション(必要なら決算待ちを付す)。
+    """推奨アクション(サイズ調整・利益確定・決算待ち・品質ガードを反映)。
 
-    guarded=True(品質ゲート未通過/整合違反あり)のときは、「今すぐ買う」等の
-    即時アクション文言を出さず、1段慎重な表現へ差し替える [カテゴリ9b]。
+    guarded=True(品質ゲート未通過/整合違反あり)のときは「今すぐ買う」等の即時文言を
+    封じ、1段慎重な表現へ差し替える [カテゴリ9b]。
     """
     label = _ACTION_LABEL.get(d.action, d.action)
-    if not d.is_candidate and d.action == "一部売却" and (d.profit_pct or 0) > 0:
-        label = "利益確定"
+    if not d.is_candidate and d.action == "一部売却":
+        # ポート最適化由来の比率調整と、利益確定を区別して表示する [カテゴリ10]。
+        label = "一部売却(比率調整)" if d.sizing_trim else ("利益確定" if (d.profit_pct or 0) > 0 else "一部売却")
     if d.is_candidate and d.action == "保有":
         label = "押し目待ち"
     if guarded and label in _IMMEDIATE_LABELS:
@@ -56,13 +60,12 @@ def _pct(v, spec="{:+.1f}%"):
 
 
 def _price(v):
-    if v is None:
-        return "—"
-    return f"{v:,.0f}円" if abs(v) >= 1000 else f"{v:,.2f}"
+    # 金額表示は共通フォーマッタ(円・整数・カンマ) [カテゴリ15]。
+    return format_yen(v)
 
 
 def build_context(data) -> dict:
-    """全体で共有する値(対平均アルファの基準・信頼度)を用意する。"""
+    """全体で共有する値(対平均アルファ基準・信頼度・品質ガード)を用意する。"""
     pool = list(getattr(data, "decisions", []))
     alloc = getattr(data, "allocation", None)
     if alloc is not None:
@@ -72,101 +75,80 @@ def build_context(data) -> dict:
     market_avg = sum(lts) / len(lts) if lts else None
     # 品質ゲート未通過 or 整合違反があれば、即時アクション文言を封じる [カテゴリ9b]。
     guarded = not getattr(data, "gate_passed", True) or bool(getattr(data, "violations", []))
-    return {"market_avg": market_avg, "guarded": guarded}
+    conf = getattr(data, "confidence", (0, "", []))
+    return {"market_avg": market_avg, "guarded": guarded, "confidence_pct": conf[0]}
+
+
+def _reasons_line(d: HoldingDecision) -> str:
+    """最重要判断要因TOP3を1行に集約(根拠と重複させない) [カテゴリ16]。"""
+    seen: list[str] = []
+    for r in d.reasons:
+        if r not in seen:
+            seen.append(r)
+        if len(seen) >= 3:
+            break
+    return "／".join(seen) if seen else recommended_action(d)
+
+
+def _risks_line(d: HoldingDecision) -> str | None:
+    """リスクを1行に集約(該当時のみ)。決算接近は先頭に。"""
+    risks: list[str] = []
+    if d.days_to_earnings is not None and d.earnings_alert:
+        risks.append(f"決算まで{d.days_to_earnings}日")
+    for r in d.risks:
+        if r not in risks:
+            risks.append(r)
+    return "／".join(risks[:3]) if risks else None
 
 
 def final_card_lines(d: HoldingDecision, ctx: dict) -> list[str]:
-    """1銘柄を9セクションへ整形(表示のみ・数値は変更しない)。"""
-    held = not d.is_candidate
+    """1銘柄をコンパクトカード(6〜8行目安)へ整形する。表示のみ・数値は変更しない。
+
+    ・結論/一言要約/推奨アクション/保有株コメント → 見出し1行に統合
+    ・最重要判断要因/根拠 → 判断理由1行に統合
+    """
     guarded = bool(ctx.get("guarded"))
     w = _horizon(d, "1週間")
     m = _horizon(d, "1ヶ月")
     lt = _long_term(d)
-    lines: list[str] = []
-
-    # ① 結論
     name = d.name or d.symbol
+    tag = "🔍監視 " if d.is_candidate else ""
+    pct = ctx.get("confidence_pct", 0)
+
+    lines: list[str] = []
+    # 見出し行(結論・推奨アクションを1行に)
+    lines.append(f"{tag}{name}（{d.symbol}）― {recommended_action(d, guarded)}")
+    # スコア・順位・信頼度(★は決定的関数から) [カテゴリ12]
     rank = f"買い順位{d.rank}位" if d.rank else "買い順位—"
-    lines.append(f"① 結論")
-    lines.append(f"・{d.symbol} {name}")
-    lines.append(f"・総合評価 {d.overall_score}点 {d.overall_stars}")
-    lines.append(f"・{rank} ／ 最終判断 {d.overall_stars}")
+    lines.append(f"総合{d.overall_score}点 {stars_from_score(d.overall_score)} ／ {rank} ／ 信頼度{pct}%")
+    # 適正価格・割安率・期間別期待リターン
     lines.append(
-        f"・期間 短期{_pct(w.pct if w else None)}／中期{_pct(m.pct if m else None)}／長期{_pct(lt.pct if lt else None)}"
+        f"適正価格{_price(d.fair_value)}（割安率{_pct(d.discount_pct)}）"
+        f"／ 期待 短期{_pct(w.pct if w else None)} 中期{_pct(m.pct if m else None)} 長期{_pct(lt.pct if lt else None)}"
     )
-
-    # ② 一言要約(20〜40字目安)
-    summary = d.comment or ("・".join(d.reasons[:2]) if d.reasons else recommended_action(d, guarded))
-    lines.append("② 一言要約")
-    lines.append(f"・{summary[:40]}")
-
-    # ③ 推奨アクション
-    lines.append("③ 推奨アクション")
-    lines.append(f"・{recommended_action(d, guarded)}")
-
-    # ④ 投資判断(重要度順)
-    alpha = None
-    if lt and lt.pct is not None and ctx.get("market_avg") is not None:
-        alpha = lt.pct - ctx["market_avg"]
-    lines.append("④ 投資判断")
-    lines.append(f"・期待リターン(長期) {_pct(lt.pct if lt else None)}")
-    lines.append(f"・適正価格 {_price(d.fair_value)} ／ 割安率 {_pct(d.discount_pct)}")
-    rr = f"{d.risk_reward:.1f}" if d.risk_reward is not None else "—"
-    lines.append(f"・RR {rr} ／ 期待α(対平均) {_pct(alpha)}")
-    lines.append(f"・資金配分 {d.alloc_pct:.0f}%" if d.alloc_pct else "・資金配分 —")
-
-    # ⑤ 最重要判断要因TOP3
-    top = d.reasons[:3] if d.reasons else []
-    if top:
-        lines.append("⑤ 最重要判断要因TOP3")
-        for i, r in enumerate(top, 1):
-            lines.append(f"{i}. {r}")
-
-    # ⑥ 根拠
-    lines.append("⑥ 根拠")
-    if d.reasons:
-        lines.append("・買い理由 " + "／".join(d.reasons[:3]))
-    if d.action in SELL_ACTIONS and d.risks:
-        lines.append("・売り理由 " + "／".join(d.risks[:2]))
-    if d.risks:
-        lines.append("・注意点 " + "／".join(d.risks[:2]))
-
-    # ⑦ リスク(最大3件)
-    risks = list(d.risks)
-    if d.days_to_earnings is not None and d.earnings_alert:
-        risks = [f"決算まで{d.days_to_earnings}日", *risks]
+    # 判断理由(TOP3を1行)
+    lines.append(f"・判断理由：{_reasons_line(d)}")
+    # リスク(あれば1行)
+    risks = _risks_line(d)
     if risks:
-        lines.append("⑦ リスク")
-        for r in risks[:3]:
-            lines.append(f"・{r}")
-
-    # ⑧ 保有株コメント(保有中のみ)
-    if held:
-        hold_map = {
-            "強く買い増し": "買い増し", "買い増し": "買い増し", "保有": "様子見",
-            "様子見": "様子見", "一部売却": "利益確定", "売却推奨": "売却",
-        }
-        reason = (d.comment or (d.reasons[0] if d.reasons else ""))[:50]
-        lines.append("⑧ 保有株コメント")
-        lines.append(f"・{hold_map.get(d.action, d.action)}：{reason}")
-
+        lines.append(f"・リスク：{risks}")
+    # 資金配分(共通判定 should_show_allocation が真のときのみ) [カテゴリ13]
+    if should_show_allocation(d.action, d.alloc_pct):
+        lines.append(f"・資金配分：{d.alloc_pct:.0f}%")
     return lines
 
 
 def final_embed(d: HoldingDecision, ctx: dict, confidence: tuple) -> dict:
     from stock_analyzer.discord import ACTION_COLOR, ACTION_EMOJI, _color_int
 
-    pct, stars, _reasons = confidence
-    heading = f"{d.symbol} {d.name}" if d.name else d.symbol
-    tag = "🔍監視 " if d.is_candidate else ""
     guarded = bool(ctx.get("guarded"))
-    lines = final_card_lines(d, ctx)
-    # ⑨ 分析信頼度(数値+★)
-    lines.append("⑨ 分析信頼度")
-    lines.append(f"・{pct}% {stars}")
+    heading = f"{d.name}（{d.symbol}）" if d.name else d.symbol
+    tag = "🔍監視 " if d.is_candidate else ""
+    # 見出しは title に集約し、本文は見出し行を除いたコンパクト行にする。
+    body = final_card_lines(d, ctx)[1:]
     return {
-        "title": f"{ACTION_EMOJI.get(d.action, '⚪')} {tag}{heading} — {recommended_action(d, guarded)}",
-        "description": "\n".join(lines),
+        "title": f"{ACTION_EMOJI.get(d.action, '⚪')} {tag}{heading} ― {recommended_action(d, guarded)}",
+        "description": "\n".join(body),
         "color": _color_int(ACTION_COLOR.get(d.action, "#95A5A6")),
     }
 
@@ -180,3 +162,13 @@ def confidence_header_embed(confidence: tuple) -> dict:
         "description": "\n".join(f"・{r}" for r in reasons),
         "color": _color_int("#27AE60"),
     }
+
+
+# 1銘柄カードの目標行数(スマホ1画面で複数銘柄が読めること) [カテゴリ16c]。
+CARD_MIN_LINES = 4
+CARD_MAX_LINES = 8
+
+
+def card_line_count(d: HoldingDecision, ctx: dict) -> int:
+    """1銘柄カードの表示行数(見出し込み)。行数チェックに使う。"""
+    return len(final_card_lines(d, ctx))

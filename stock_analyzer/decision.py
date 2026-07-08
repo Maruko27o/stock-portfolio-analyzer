@@ -14,10 +14,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from stock_analyzer import config, tax
+from stock_analyzer.display import format_yen, should_show_allocation
 from stock_analyzer.analysis import HoldingAnalysis
 from stock_analyzer.horizon_model import HorizonExpectation
 from stock_analyzer.summary import HoldingSummary
-from stock_analyzer.valuation import discount_pct, fair_value
+from stock_analyzer.valuation import discount_pct, fair_value, per_is_plausible
 
 # スコア帯 → (★評価, 6段階アクション)。境界は summary.rating_from_score と揃える。
 SCORE_BANDS = [
@@ -66,6 +67,8 @@ class HoldingDecision:
     reasons: list[str] = field(default_factory=list)  # 裏付け(通知では原則非表示、CLI詳細用)
     risks: list[str] = field(default_factory=list)
     subscores: dict = field(default_factory=dict)  # [カテゴリ4]カテゴリ別サブスコア(安定性監査用)
+    sizing_trim: bool = False  # [カテゴリ10]ポート最適化(リバランス)由来の縮小=サイズ調整の売り
+    per_flagged: bool = False  # [カテゴリ14]PERが異常値=算出不可・要確認(割安判定から除外)
 
 
 def _stars5(n_filled: int) -> str:
@@ -99,12 +102,17 @@ def apply_overvalued_cap(score: int, discount: float | None) -> tuple[int, str, 
     """
     if discount is not None and discount > config.OVERVALUED_DISCOUNT_PCT:
         score = min(score, config.OVERVALUED_SCORE_CAP)
-    stars, action = score_to_action(score)
-    return score, stars, action
+    _, action = score_to_action(score)
+    # ★は必ず決定的関数(floor(score/20))から。アクション帯の★では上書きしない [カテゴリ12]。
+    return score, stars_from_score(score), action
 
 
 def score_to_action(score: int) -> tuple[str, str]:
-    """スコア→(★評価, 6段階アクション)。"""
+    """スコア→(★評価[アクション帯], 6段階アクション)。
+
+    注意: 表示用の★は stars_from_score(=floor(score/20)) を使うこと。ここが返す★は
+    アクション帯(SCORE_BANDS)の内部表現で、表示に使うと帯境界で+1個ズレる [カテゴリ12]。
+    """
     for threshold, stars, action in SCORE_BANDS:
         if score >= threshold:
             return stars, action
@@ -209,11 +217,8 @@ DIVIDER = "━━━━━━━━━━━━"
 
 
 def _price(value: float | None) -> str:
-    if value is None:
-        return "—"
-    if abs(value) >= 1000:
-        return f"{value:,.0f}円"
-    return f"{value:,.2f}"
+    # 金額表示は共通フォーマッタに一本化(円・整数・カンマ) [カテゴリ15]。
+    return format_yen(value)
 
 
 def _horizon_text(h: HorizonExpectation) -> str:
@@ -242,7 +247,11 @@ def format_decision_lines(decision: HoldingDecision) -> list[str]:
         if decision.discount_pct is not None
         else "割安率 —"
     )
-    alloc = f"資金配分 {decision.alloc_pct:.0f}%" if decision.alloc_pct else "資金配分 —"
+    alloc = (
+        f"資金配分 {decision.alloc_pct:.0f}%"
+        if should_show_allocation(decision.action, decision.alloc_pct)
+        else "資金配分 —"
+    )
     lines.append(f"{rr} ／ {disc} ／ {alloc}")
 
     earn = (
@@ -272,6 +281,12 @@ def build_decision(
     disc = discount_pct(analysis)
     # [カテゴリ2] 割高ならスコアを上限クリップ→強い買い/最上位を封じる(最初の起点で保証)。
     overall_score, stars, action = apply_overvalued_cap(summary.score, disc)
+    # [カテゴリ14] PERが同業種目安から極端に外れる=異常値(算出不可・要確認)。
+    per_value = analysis.forward_per if analysis.forward_per is not None else analysis.per
+    per_flagged = (
+        per_value is not None and per_value > 0
+        and not per_is_plausible(per_value, analysis.sector)
+    )
     rr = risk_reward(summary.current_price, summary.take_profit, summary.stop_loss)
     earnings_alert = (
         analysis.days_to_earnings is not None and 0 <= analysis.days_to_earnings <= EARNINGS_ALERT_DAYS
@@ -317,4 +332,5 @@ def build_decision(
         reasons=list(summary.reasons),
         risks=list(summary.risks),
         subscores=dict(getattr(summary, "subscores", {}) or {}),
+        per_flagged=per_flagged,
     )

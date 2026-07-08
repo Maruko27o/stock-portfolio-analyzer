@@ -16,8 +16,9 @@ from dataclasses import dataclass, field
 from stock_analyzer import config
 from stock_analyzer.decision import HoldingDecision
 
-# 6段階のうち、新規資金の配分対象にしないアクション(保有継続はするが買い増さない)。
-NO_ADD_ACTIONS = {"一部売却", "売却推奨", "様子見"}
+# 新規資金の配分対象にしないアクション(=非購入系)。保有・様子見・売却系は新規配分しない。
+# [カテゴリ13] 資金配分の表示可否(display.should_show_allocation)と概念を一致させる。
+NO_ADD_ACTIONS = {"保有", "様子見", "一部売却", "売却推奨"}
 
 
 @dataclass
@@ -59,7 +60,10 @@ def priority_value(decision: HoldingDecision) -> float:
 
 
 def _rank(decisions: list[HoldingDecision]) -> list[HoldingDecision]:
-    ranked = sorted(decisions, key=priority_value, reverse=True)
+    """買い順位を付ける。[カテゴリ11] 総合スコア降順を必ず起点にし、同点のときだけ
+    priority_value(期待リターン×確度の加点)で微調整する。順位は必ずスコア降順と一致。
+    """
+    ranked = sorted(decisions, key=lambda d: (d.overall_score, priority_value(d)), reverse=True)
     for i, d in enumerate(ranked, start=1):
         d.rank = i
     return ranked
@@ -95,8 +99,9 @@ def _diversification_note(sector_breakdown: dict[str, float], cash_pct: float, n
 
 
 SCORE_CAVEAT = "※スコアは現在のシグナル整合度。過去検証では帯間の勝率差は小さい点に留意"
-# [カテゴリ3] 買い順位の付け方(スコア基準＋期待リターン×確度の加点)を根拠として明記する。
-RANKING_BASIS = "※買い順位=総合スコア降順を基本に、半年〜1年の期待リターン×確度を加点(priority_value)"
+# [カテゴリ3/11] 買い順位の付け方を根拠として明記する。順位は必ず総合スコア降順で、
+# 同点時のみ期待リターン×確度で微調整する(=表示順位とスコアは常に降順一致)。
+RANKING_BASIS = "※買い順位=総合スコア降順(同点時のみ半年〜1年 期待リターン×確度で調整)"
 
 
 def cash_range_note(plan: "AllocationPlan") -> str:

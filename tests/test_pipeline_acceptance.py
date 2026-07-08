@@ -11,16 +11,15 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from stock_analyzer.cli import collect_report_data
-from stock_analyzer.decision import HoldingDecision, score_to_action
+from stock_analyzer.decision import HoldingDecision, stars_from_score
 from stock_analyzer.horizon_model import HorizonExpectation
 from stock_analyzer.portfolio import Holding
 
 
 def _decision(symbol, **kw) -> HoldingDecision:
     score = kw.get("overall_score", 75)
-    stars, _ = score_to_action(score)
     defaults = dict(
-        name=symbol, current_price=1000.0, overall_score=75, overall_stars=stars,
+        name=symbol, current_price=1000.0, overall_score=75, overall_stars=stars_from_score(score),
         action="買い増し", fair_value=1080.0, discount_pct=-8.0, risk_reward=2.0,
         supply_demand_stars="★★★☆☆", dividend_stars="★★★☆☆", dividend_yield=3.0,
         days_to_earnings=None, earnings_alert=False,
@@ -72,6 +71,23 @@ def test_overvalued_strong_buy_is_self_healed():
     assert healed.overall_score <= 80
     # 最終整合チェックでも割高強気の違反は残らない
     assert not any(v.rule == "2.割高強気" for v in data.violations)
+
+
+def test_overweight_neutral_card_is_reconciled_to_trim():
+    # [カテゴリ10 再発] 保有比率が過大な「保有(現状維持)」カードは、リバランスの縮小指示と
+    # 矛盾しないよう「一部売却(サイズ調整)」へ整合され、方向矛盾の違反が0になる。
+    big = _decision("BIG.T", overall_score=82, action="保有", discount_pct=-4.0)
+    big.current_price = 5000.0  # 大きな評価額でポートを占有
+    small = _decision("SML.T", overall_score=60, action="様子見", discount_pct=1.0)
+    small.current_price = 500.0
+    data = _run([Holding("BIG.T", 100, 4000.0), Holding("SML.T", 10, 480.0)],
+                {"BIG.T": big, "SML.T": small})
+    result = {d.symbol: d for d in data.decisions}["BIG.T"]
+    # ポート最適化に合わせサイズ調整(一部売却)へ整合
+    assert result.action == "一部売却"
+    assert result.sizing_trim is True
+    # 方向矛盾(check #1)を含め、最終整合チェックは違反0
+    assert data.violations == [], [f"{v.rule}:{v.detail}" for v in data.violations]
 
 
 def test_bearish_market_raises_cash_range():

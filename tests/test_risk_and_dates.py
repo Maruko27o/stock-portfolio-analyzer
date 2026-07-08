@@ -10,6 +10,7 @@ def _analysis(**kw):
     base = dict(
         days_to_earnings=None, rsi=None, bollinger=None, payout_ratio=None,
         profit_pct=None, volume_price_signal="", current_ratio=None,
+        per=None, forward_per=None, sector=None,
     )
     base.update(kw)
     return SimpleNamespace(**base)
