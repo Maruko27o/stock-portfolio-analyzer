@@ -112,6 +112,10 @@ def _improve_decision(d: HoldingDecision, revisions: list) -> None:
     # [カテゴリ2] 割高のハード制約(スコア上限・強い買い封じ)を最優先で保証。
     _cap_overvalued(d, revisions)
 
+    # [カテゴリ23] RSI極端過熱なら積極的買いを様子見へ格下げ(再計算後も保証)。
+    if d.rsi is not None and d.rsi >= config.RSI_EXTREME_OVERBOUGHT and d.action in BUY_ACTIONS:
+        _set_action(d, "様子見", f"RSI{d.rsi:.0f}の極端な過熱のため積極的買いを解除", "23.過熱", revisions)
+
     # 7.スコア: 半年〜1年の期待リターンが高すぎ → アナリスト水準へ抑制(点数=期待の再計算)
     if lt is not None and lt.pct is not None and lt.pct > EXPECTED_RETURN_CAP:
         before = lt.pct

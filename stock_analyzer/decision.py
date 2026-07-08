@@ -13,12 +13,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from stock_analyzer import config, tax
+from stock_analyzer import config, names, tax
 from stock_analyzer.display import format_yen, should_show_allocation
 from stock_analyzer.analysis import HoldingAnalysis
 from stock_analyzer.horizon_model import HorizonExpectation
 from stock_analyzer.summary import HoldingSummary
-from stock_analyzer.valuation import discount_pct, fair_value, per_is_plausible
+from stock_analyzer.valuation import (
+    discount_pct,
+    fair_value,
+    fair_value_is_sane,
+    per_is_plausible,
+)
 
 # スコア帯 → (★評価, 6段階アクション)。境界は summary.rating_from_score と揃える。
 SCORE_BANDS = [
@@ -69,6 +74,11 @@ class HoldingDecision:
     subscores: dict = field(default_factory=dict)  # [カテゴリ4]カテゴリ別サブスコア(安定性監査用)
     sizing_trim: bool = False  # [カテゴリ10]ポート最適化(リバランス)由来の縮小=サイズ調整の売り
     per_flagged: bool = False  # [カテゴリ14]PERが異常値=算出不可・要確認(割安判定から除外)
+    valuation_flagged: bool = False  # [カテゴリ20]適正価格が桁乖離=要確認(割安判定から除外)
+    name_mismatch: bool = False  # [カテゴリ22]取得社名が正規マスタと不一致
+    rsi: float | None = None  # [カテゴリ23]過熱チェック用の RSI(表示・検証で参照)
+    confidence_pct: int = 0  # [カテゴリ19]銘柄別の分析信頼度(%)
+    confidence_reasons: list = field(default_factory=list)  # [カテゴリ19]信頼度の内訳
 
 
 def _stars5(n_filled: int) -> str:
@@ -91,6 +101,16 @@ def stars_from_score(score: float | None) -> str:
 def star_count(stars: str | None) -> int:
     """★の数を返す(表示検証用)。None/空は0。"""
     return stars.count("★") if stars else 0
+
+
+def apply_rsi_extreme_cap(action: str, rsi: float | None) -> str:
+    """[カテゴリ23] RSIが極端な過熱(閾値以上)なら、積極的買いを様子見へ格下げする。
+
+    銘柄単体のテクニカル事実(過熱)だけで買いの強さを封じるハードルール。
+    """
+    if rsi is not None and rsi >= config.RSI_EXTREME_OVERBOUGHT and action in ("強く買い増し", "買い増し"):
+        return "様子見"
+    return action
 
 
 def apply_overvalued_cap(score: int, discount: float | None) -> tuple[int, str, str]:
@@ -278,15 +298,26 @@ def build_decision(
     horizons: list[HorizonExpectation],
 ) -> HoldingDecision:
     """summary(スコア) + horizons(期間別期待) から最終判断をまとめる。"""
+    fv = fair_value(analysis)
     disc = discount_pct(analysis)
+    # [カテゴリ20] 適正価格が現在株価から桁でズレる=分割調整の不整合を疑い、要確認として
+    # 割安判定(fair_value/discount)から除外する。誤った「割安」を出さない。
+    valuation_flagged = fv is not None and not fair_value_is_sane(fv, analysis.current_price)
+    if valuation_flagged:
+        fv, disc = None, None
     # [カテゴリ2] 割高ならスコアを上限クリップ→強い買い/最上位を封じる(最初の起点で保証)。
     overall_score, stars, action = apply_overvalued_cap(summary.score, disc)
+    # [カテゴリ23] RSI極端過熱なら積極的買いを様子見へ格下げ(★は据え置き=質の情報は保持)。
+    action = apply_rsi_extreme_cap(action, analysis.rsi)
     # [カテゴリ14] PERが同業種目安から極端に外れる=異常値(算出不可・要確認)。
     per_value = analysis.forward_per if analysis.forward_per is not None else analysis.per
     per_flagged = (
         per_value is not None and per_value > 0
         and not per_is_plausible(per_value, analysis.sector)
     )
+    # [カテゴリ22] 社名は正規マスタを優先(誤記を上書き)。取得名がマスタと食い違えば記録。
+    display_name = names.resolve(summary.symbol, summary.name)
+    name_mismatch = not names.name_matches(summary.symbol, summary.name)
     rr = risk_reward(summary.current_price, summary.take_profit, summary.stop_loss)
     earnings_alert = (
         analysis.days_to_earnings is not None and 0 <= analysis.days_to_earnings <= EARNINGS_ALERT_DAYS
@@ -303,12 +334,12 @@ def build_decision(
 
     return HoldingDecision(
         symbol=summary.symbol,
-        name=summary.name,
+        name=display_name,
         current_price=summary.current_price,
         overall_score=overall_score,
         overall_stars=stars,
         action=action,
-        fair_value=fair_value(analysis),
+        fair_value=fv,
         discount_pct=disc,
         risk_reward=rr,
         supply_demand_stars=supply_demand_stars(analysis),
@@ -330,7 +361,13 @@ def build_decision(
         tax_note=tax_assessment.note if tax_assessment else None,
         tax_sell_bias=tax_assessment.sell_bias if tax_assessment else 0,
         reasons=list(summary.reasons),
-        risks=list(summary.risks),
+        risks=(
+            list(summary.risks) + ["適正価格が現在株価と桁乖離(分割調整の疑い・要確認)"]
+            if valuation_flagged else list(summary.risks)
+        ),
         subscores=dict(getattr(summary, "subscores", {}) or {}),
         per_flagged=per_flagged,
+        valuation_flagged=valuation_flagged,
+        name_mismatch=name_mismatch,
+        rsi=analysis.rsi,
     )

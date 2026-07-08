@@ -2,10 +2,12 @@ name: Daily Portfolio Notification
 
 on:
   schedule:
-    # 毎日 (JST) 12:00 と 21:00。GitHub の cron は UTC (JST = UTC+9)。
+    # 毎日 (JST) 12:00 と 21:00 目安。GitHub の cron は UTC (JST = UTC+9)。
+    # 注意: GitHub Actions のスケジュールは best-effort で、負荷時は数十分〜数時間遅れる/
+    # まれに欠落する公式仕様。分を :00 から外す(:07)と世界的な混雑を避けやすく遅延を抑えられる。
     # 市場休場日(土日・祝日・年末年始)は SKIP_IF_MARKET_CLOSED により自動でスキップ。
-    - cron: "0 3 * * *" #  12:00 JST 毎日 (= 03:00 UTC)
-    - cron: "0 12 * * *" # 21:00 JST 毎日 (= 12:00 UTC)
+    - cron: "7 3 * * *" #  12:07 JST 目安 毎日 (= 03:07 UTC)
+    - cron: "7 12 * * *" # 21:07 JST 目安 毎日 (= 12:07 UTC)
   workflow_dispatch:
     inputs:
       symbols:

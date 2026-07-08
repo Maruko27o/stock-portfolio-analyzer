@@ -74,5 +74,5 @@ def test_confidence_returns_pct_stars_reasons():
     pct, stars, reasons = confidence(view)
     assert 0 <= pct <= 100
     assert len(stars) == 5
-    assert any("データ充足率" in r for r in reasons)
+    assert any("銘柄別信頼度の平均" in r for r in reasons)
     assert "品質ゲート通過" in reasons

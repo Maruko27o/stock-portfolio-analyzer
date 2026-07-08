@@ -100,12 +100,12 @@ def conclusion_embed(conclusion: DailyConclusion) -> dict:
             lines.append(f"🔴 {it.name or it.symbol}{tag} {it.action}（{it.reason}）")
     if conclusion.sells:
         lines.append("")
-        lines.append("**今日の売り候補**")
+        lines.append("**今日の売り候補(銘柄単体評価)**")
         for it in conclusion.sells:
             lines.append(f"🔵 {it.name or it.symbol} {it.action}（{it.reason}）")
     if conclusion.rebalance_moves:
         lines.append("")
-        lines.append("**比率の是正**")
+        lines.append("**比率の是正(ポート調整・銘柄評価とは別)**")
         for it in conclusion.rebalance_moves:
             lines.append(f"▼ {it.name or it.symbol} {it.reason}")
 

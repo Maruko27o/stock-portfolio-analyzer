@@ -186,6 +186,10 @@ SCORE_JUMP_ALERT_PT = 20
 # 明文化した条件のいずれかに該当したらリスク欄を必ず表示、非該当なら省略する。
 RISK_RSI_OVERBOUGHT = 70.0
 RISK_RSI_OVERSOLD = 30.0
+
+# [カテゴリ23] 極端な過熱: RSIがこの閾値以上なら、その事実だけで積極的買い(強く買い増し/
+# 買い増し)を選べないハードルール。様子見へ自動格下げし、資金配分も付けない。
+RSI_EXTREME_OVERBOUGHT = 85.0
 RISK_PAYOUT_RATIO_MAX = 2.0  # 配当性向200%超(=2.0)
 RISK_CURRENT_RATIO_MIN = 1.2  # 流動比率1.2未満
 
@@ -224,6 +228,7 @@ _OVERRIDABLE_KEYS = {
     "RISK_RSI_OVERSOLD",
     "RISK_PAYOUT_RATIO_MAX",
     "RISK_CURRENT_RATIO_MIN",
+    "RSI_EXTREME_OVERBOUGHT",
 }
 
 
