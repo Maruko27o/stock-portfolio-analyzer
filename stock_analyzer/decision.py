@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from stock_analyzer import tax
+from stock_analyzer import config, tax
 from stock_analyzer.analysis import HoldingAnalysis
 from stock_analyzer.horizon_model import HorizonExpectation
 from stock_analyzer.summary import HoldingSummary
@@ -65,11 +65,42 @@ class HoldingDecision:
     tax_sell_bias: int = 0  # 税から見た売却優先度補正: +1売りやすい/0中立/-1温存
     reasons: list[str] = field(default_factory=list)  # 裏付け(通知では原則非表示、CLI詳細用)
     risks: list[str] = field(default_factory=list)
+    subscores: dict = field(default_factory=dict)  # [カテゴリ4]カテゴリ別サブスコア(安定性監査用)
 
 
 def _stars5(n_filled: int) -> str:
     n = max(0, min(5, n_filled))
     return "★" * n + "☆" * (5 - n)
+
+
+def stars_from_score(score: float | None) -> str:
+    """スコア(0-100)→★★★★★ を決定的に対応させる単純関数 [カテゴリ5]。
+
+    star数 = min(5, floor(score/20)) を厳守し、範囲外(6個以上/負)を構造的に出さない。
+    表示・検証はこの1関数に集約し、どこかで6個星が出るバグを再発させない。
+    """
+    if score is None:
+        return "☆☆☆☆☆"
+    n = int(score // 20)
+    return _stars5(n)
+
+
+def star_count(stars: str | None) -> int:
+    """★の数を返す(表示検証用)。None/空は0。"""
+    return stars.count("★") if stars else 0
+
+
+def apply_overvalued_cap(score: int, discount: float | None) -> tuple[int, str, str]:
+    """割高(割安率>0)ならスコアを上限でクリップし、強い買い/最上位を封じる [カテゴリ2]。
+
+    割高銘柄は総合スコアが OVERVALUED_SCORE_CAP を超えられず、その結果アクションも
+    「強く買い増し」(=85点以上が必要)になり得ない。ハード制約として一元適用する。
+    戻り値: (クリップ後スコア, ★, 6段階アクション)。
+    """
+    if discount is not None and discount > config.OVERVALUED_DISCOUNT_PCT:
+        score = min(score, config.OVERVALUED_SCORE_CAP)
+    stars, action = score_to_action(score)
+    return score, stars, action
 
 
 def score_to_action(score: int) -> tuple[str, str]:
@@ -238,8 +269,9 @@ def build_decision(
     horizons: list[HorizonExpectation],
 ) -> HoldingDecision:
     """summary(スコア) + horizons(期間別期待) から最終判断をまとめる。"""
-    stars, action = score_to_action(summary.score)
     disc = discount_pct(analysis)
+    # [カテゴリ2] 割高ならスコアを上限クリップ→強い買い/最上位を封じる(最初の起点で保証)。
+    overall_score, stars, action = apply_overvalued_cap(summary.score, disc)
     rr = risk_reward(summary.current_price, summary.take_profit, summary.stop_loss)
     earnings_alert = (
         analysis.days_to_earnings is not None and 0 <= analysis.days_to_earnings <= EARNINGS_ALERT_DAYS
@@ -258,7 +290,7 @@ def build_decision(
         symbol=summary.symbol,
         name=summary.name,
         current_price=summary.current_price,
-        overall_score=summary.score,
+        overall_score=overall_score,
         overall_stars=stars,
         action=action,
         fair_value=fair_value(analysis),
@@ -284,4 +316,5 @@ def build_decision(
         tax_sell_bias=tax_assessment.sell_bias if tax_assessment else 0,
         reasons=list(summary.reasons),
         risks=list(summary.risks),
+        subscores=dict(getattr(summary, "subscores", {}) or {}),
     )

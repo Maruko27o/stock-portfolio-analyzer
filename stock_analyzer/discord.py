@@ -185,6 +185,8 @@ def manager_embed(
         for d in ranking:
             tag = "（新規）" if d.is_candidate else ""
             lines.append(f"{d.rank}位 {d.symbol} {d.name or ''}{tag} {d.overall_stars} {d.action}")
+        # [カテゴリ3] 順位の付け方(根拠)を明記する。
+        lines.append("※順位=総合スコア降順＋期待リターン×確度の加点")
 
     if allocation.weights:
         lines.append("")
@@ -196,7 +198,9 @@ def manager_embed(
         lines.append(" ／ ".join(alloc_bits))
         lines.append(f"現金 {allocation.cash_pct:.0f}%")
 
-    stats = [f"現金比率 {allocation.cash_pct:.0f}%"]
+    from stock_analyzer.allocation import cash_range_note
+
+    stats = [cash_range_note(allocation)]
     if allocation.expected_dividend_yield is not None:
         stats.append(f"想定配当利回り {allocation.expected_dividend_yield:.1f}%")
     if allocation.portfolio_expected_return is not None:

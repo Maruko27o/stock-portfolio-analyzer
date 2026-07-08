@@ -16,8 +16,15 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from stock_analyzer import config
 from stock_analyzer.conclusion import BUY_ACTIONS
-from stock_analyzer.decision import SCORE_BANDS, SELL_ACTIONS, HoldingDecision, _comment
+from stock_analyzer.decision import (
+    SCORE_BANDS,
+    SELL_ACTIONS,
+    HoldingDecision,
+    _comment,
+    score_to_action,
+)
 from stock_analyzer.review import EXPECTED_RETURN_CAP, HIGH_SCORE, MAX_HIGH_SCORES
 
 # 強い順のアクション列(SCORE_BANDS と一致)。
@@ -73,9 +80,36 @@ def _downgrade_one(d: HoldingDecision, reason: str, category: str, revisions: li
     _set_action(d, target, reason, category, revisions)
 
 
+def _cap_overvalued(d: HoldingDecision, revisions: list) -> None:
+    """[カテゴリ2] 割高(割安率>0)はスコア上限クリップ&強い買い封じを再保証する。"""
+    if d.discount_pct is None or d.discount_pct <= config.OVERVALUED_DISCOUNT_PCT:
+        return
+    over_score = d.overall_score > config.OVERVALUED_SCORE_CAP
+    over_action = d.action == "強く買い増し"
+    if not (over_score or over_action):
+        return
+    before = f"{d.action}({d.overall_score}点)"
+    capped = min(d.overall_score, config.OVERVALUED_SCORE_CAP)
+    stars, action = score_to_action(capped)
+    d.overall_score = capped
+    d.overall_stars = stars
+    d.action = action
+    lt = _long_term(d)
+    d.comment = _comment(action, d.discount_pct, d.earnings_alert, lt.pct if lt else None)
+    note = f"割高(割安率{d.discount_pct:+.0f}%)のためスコア上限{config.OVERVALUED_SCORE_CAP}点・強い買いを解除"
+    if note not in d.reasons:
+        d.reasons = list(d.reasons) + [note]
+    revisions.append(
+        Revision(d.symbol, "2.割安割高", f"{before}→{action}({capped}点)", note)
+    )
+
+
 def _improve_decision(d: HoldingDecision, revisions: list) -> None:
     """1銘柄にレビュー指摘と同条件の補正を当てる。方向性は維持し矛盾のみ直す。"""
     lt = _long_term(d)
+
+    # [カテゴリ2] 割高のハード制約(スコア上限・強い買い封じ)を最優先で保証。
+    _cap_overvalued(d, revisions)
 
     # 7.スコア: 半年〜1年の期待リターンが高すぎ → アナリスト水準へ抑制(点数=期待の再計算)
     if lt is not None and lt.pct is not None and lt.pct > EXPECTED_RETURN_CAP:

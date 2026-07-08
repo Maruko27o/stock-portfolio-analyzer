@@ -60,7 +60,14 @@ from stock_analyzer.market import (
 from stock_analyzer.portfolio import Holding, load_portfolio
 from stock_analyzer.rebalance import RebalancePlan, build_rebalance, format_rebalance_lines
 from stock_analyzer.review import rule_based_review
-from stock_analyzer import self_improve, quality_gate
+from stock_analyzer import (
+    aliases,
+    concentration,
+    consistency,
+    self_improve,
+    stability,
+    quality_gate,
+)
 from stock_analyzer.final_output import (
     build_context,
     confidence_header_embed,
@@ -159,6 +166,9 @@ def render_summary_text(data: "ReportData") -> list[str]:
     lines.append(f"✅ 分析信頼度 {pct}% {stars}")
     lines.extend(f"・{r}" for r in reasons)
     lines.append("")
+    # 必須の最終自動検証(7項目)の結果を明示する。
+    lines.extend(consistency.format_lines(data.violations))
+    lines.append("")
     ctx = build_context(data)
     for decision in data.decisions:
         lines.extend(final_card_lines(decision, ctx))
@@ -217,6 +227,9 @@ class ReportData:
     gate_passed: bool = False  # 品質ゲート通過フラグ
     gate_issues: list = field(default_factory=list)  # ゲートに残った問題(内部保持・非表示)
     confidence: tuple = (0, "☆☆☆☆☆", [])  # 分析信頼度(%,★,理由)
+    concentration_caps: list = field(default_factory=list)  # [カテゴリ1]集中度で買い封じした記録
+    stability_alerts: list = field(default_factory=list)  # [カテゴリ4]スコア急変の注意
+    violations: list = field(default_factory=list)  # [必須検証]最終整合チェックの違反一覧
 
     def is_empty(self) -> bool:
         return not self.snapshot and not self.summaries and not self.swing_picks
@@ -269,11 +282,11 @@ def _decision_from(summary, analysis: HoldingAnalysis, backtest: dict | None) ->
 
 
 def _company_key(decision: HoldingDecision) -> str:
-    """同一企業をまとめるキー。銘柄名(無ければコード)を正規化して使う。
+    """同一企業をまとめるキー。エイリアス表(別ティッカー紐付け)→銘柄名の順で正規化する。
 
-    国内株(9202.T)と米ADRなど、同じ会社が別コードで二重に並ぶのを防ぐ。
+    国内株(7203.T)と米ADR(TM)など、同じ会社が別コードで二重に並ぶのを防ぐ [カテゴリ6]。
     """
-    return (decision.name or decision.symbol).strip().lower()
+    return aliases.company_key(decision.symbol, decision.name)
 
 
 def _dedup_pref(decision: HoldingDecision) -> tuple:
@@ -405,14 +418,16 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
                 }
             )
 
-    # 保有＋監視＋新規候補をまとめてポート最適化(買い優先順位・資金配分)。
-    allocation = optimize_allocation(decisions + candidate_decisions, regime, vix)
+    # 市場5段階スタンス(強気〜弱気)。[カテゴリ8] 現金比率レンジはこの表示スタンスに連動させる。
+    stance = market_stance(snapshot, vix) if snapshot else None
 
-    # 保有比率の是正(現在→推奨)と、市場5段階スタンス、本日の結論を組み立てる。
+    # 保有＋監視＋新規候補をまとめてポート最適化(買い優先順位・資金配分)。現金下限はスタンス由来。
+    allocation = optimize_allocation(decisions + candidate_decisions, stance, vix)
+
+    # 保有比率の是正(現在→推奨)と、本日の結論を組み立てる。
     # リバランスは保有(数量あり)のみが対象。監視・候補は is_candidate で自動的に外れる。
     quantities = {h.symbol: h.quantity for h in held}
     rebalance = build_rebalance(decisions, quantities)
-    stance = market_stance(snapshot, vix) if snapshot else None
     conclusion = build_conclusion(decisions, allocation, rebalance)
 
     data = ReportData(
@@ -435,8 +450,10 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
 
     def _recompute() -> None:
         # 判断/文章が変わったら配分・リバランス・結論・候補・レビューを取り直す。
-        data.allocation = optimize_allocation(decisions + candidate_decisions, regime, vix)
+        # [カテゴリ1] 先にリバランスで現在比率→目標比率を出し、目標超過の買い増しを封じる。
         data.rebalance = build_rebalance(decisions, quantities)
+        data.concentration_caps = concentration.apply_caps(decisions, data.rebalance)
+        data.allocation = optimize_allocation(decisions + candidate_decisions, stance, vix)
         data.conclusion = build_conclusion(decisions, data.allocation, data.rebalance)
         data.swing_picks = _rebuild_swing_picks(candidate_decisions, decisions)
         data.review = rule_based_review(data)
@@ -451,8 +468,44 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
     passed, _passes, issues = quality_gate.run_gate(data, _on_fix)
     data.gate_passed = passed
     data.gate_issues = issues
-    data.confidence = quality_gate.confidence(data)
+    # [カテゴリ4] スコア安定性の監査: 前回サブスコアと突き合わせ、ファンダ不変なのに
+    # 総合が急変した銘柄へ「要目視確認」を付与し、監査ログへ今回値を追記する。
+    _annotate_stability(data, as_of)
+    # ⑤' 必須の最終自動検証(全銘柄): 7項目の整合を確認し、違反を保持する。
+    # 違反があれば信頼度を引き下げ(下の confidence)、即時アクション文言を封じる(final_output)。
+    data.violations = consistency.check_all(data)
+    data.confidence = quality_gate.confidence(data)  # violations 反映後に算出
     return data
+
+
+STABILITY_LOG_ENV_VAR = "SUBSCORE_LOG"
+
+
+def _annotate_stability(data: "ReportData", as_of: date | None) -> None:
+    """[カテゴリ4] 前回サブスコアと比較して急変を検知し、注意書き＋監査ログを付与する。
+
+    環境変数 SUBSCORE_LOG が未設定なら何もしない(オフライン/テストを壊さない)。
+    """
+    import os
+
+    path = os.environ.get(STABILITY_LOG_ENV_VAR)
+    if not path:
+        return
+    entries = [
+        stability.SubscoreRecord(d.symbol, d.overall_score, dict(d.subscores or {}))
+        for d in data.decisions
+    ]
+    prev_map = stability.read_last_by_symbol(path)
+    alerts = stability.check_entries(entries, prev_map)
+    for d in data.decisions:
+        note = alerts.get(d.symbol)
+        if note and note not in d.risks:
+            d.risks = list(d.risks) + [note]
+    data.stability_alerts = [
+        stability.StabilityAlert(sym, prev_map[sym].total, next(e.total for e in entries if e.symbol == sym), note)
+        for sym, note in alerts.items()
+    ]
+    stability.append_records(path, entries, as_of)
 
 
 def _rebuild_swing_picks(candidate_decisions: list, decisions: list) -> list[dict]:
@@ -507,6 +560,19 @@ def discord_embeds_from(data: ReportData) -> list[dict]:
         embeds.append(manager_embed(data.allocation, data.rebalance))
     # ⑥ 最終出力AI(表示専用): 9セクションの銘柄カード。数値・判断は変更しない。
     embeds.append(confidence_header_embed(data.confidence))
+    # 必須の最終自動検証の結果(違反があれば警告として明示)。
+    if data.violations:
+        from stock_analyzer.discord import _color_int
+
+        counts = consistency.summarize(data.violations)
+        embeds.append(
+            {
+                "title": f"⚠️ 整合チェック: {len(data.violations)}件の違反(要確認)",
+                "description": "\n".join(f"・[{r}] {n}件" for r, n in counts.items())
+                + "\n※未解消の矛盾があるため、信頼度を引き下げ即時アクションは保留しています。",
+                "color": _color_int("#E74C3C"),
+            }
+        )
     ctx = build_context(data)
     embeds.extend(final_embed(decision, ctx, data.confidence) for decision in data.decisions)
     if data.swing_picks:

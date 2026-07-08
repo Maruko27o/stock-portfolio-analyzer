@@ -65,6 +65,16 @@ def _logic_findings(d: HoldingDecision) -> list[ReviewFinding]:
     out: list[ReviewFinding] = []
     lt = _long_term(d)
 
+    # [カテゴリ2] 割高(割安率>0)のハード制約違反: 高スコアor強い買い
+    if d.discount_pct is not None and d.discount_pct > config.OVERVALUED_DISCOUNT_PCT and (
+        d.overall_score > config.OVERVALUED_SCORE_CAP or d.action == "強く買い増し"
+    ):
+        out.append(ReviewFinding(
+            "2.割安割高", d.symbol,
+            f"割高(割安率{d.discount_pct:+.0f}%)なのに{d.overall_score}点/「{d.action}」",
+            f"割高銘柄は総合{config.OVERVALUED_SCORE_CAP}点超・強い買いにできない(ハード制約)。",
+            f"スコアを{config.OVERVALUED_SCORE_CAP}点以下へ、アクションを買い増し以下へ格下げ。",
+        ))
     # 割高なのに買い
     if d.discount_pct is not None and d.discount_pct >= 10 and d.action in BUY_ACTIONS:
         out.append(ReviewFinding(
