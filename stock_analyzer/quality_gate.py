@@ -66,8 +66,11 @@ def gate_check(data) -> list[str]:
             issues.append(
                 f"{tag}: 割高だが{d.overall_score}点/「{d.action}」(上限{config.OVERVALUED_SCORE_CAP}点)"
             )
-        # 売却なのに期待リターンが高すぎ
-        if d.action in SELL_ACTIONS and lt is not None and lt.pct is not None and lt.pct >= 15:
+        # 売却なのに期待リターンが高すぎ(サイズ調整=sizing_trim は「質は高いが比率過大」で対象外)
+        if (
+            d.action in SELL_ACTIONS and lt is not None and lt.pct is not None
+            and lt.pct >= 15 and not getattr(d, "sizing_trim", False)
+        ):
             issues.append(f"{tag}: 売却判断だが期待リターンが高い({lt.pct:+.0f}%)")
         # 期待が非現実的
         if lt is not None and lt.pct is not None and lt.pct > UNREALISTIC_RETURN:

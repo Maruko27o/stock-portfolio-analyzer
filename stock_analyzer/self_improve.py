@@ -24,6 +24,7 @@ from stock_analyzer.decision import (
     HoldingDecision,
     _comment,
     score_to_action,
+    stars_from_score,
 )
 from stock_analyzer.review import EXPECTED_RETURN_CAP, HIGH_SCORE, MAX_HIGH_SCORES
 
@@ -59,11 +60,11 @@ def _set_action(d: HoldingDecision, action: str, reason: str, category: str, rev
     """アクションを変更し、点数を新しい帯へ再計算、コメントを刷新、理由を追加する。"""
     if d.action == action:
         return
-    low, high, stars = _band_range(action)
+    low, high, _stars = _band_range(action)
     before = f"{d.action}({d.overall_score}点)"
     d.action = action
-    d.overall_stars = stars
     d.overall_score = max(low, min(high, d.overall_score))  # 点数の再計算(帯に整合)
+    d.overall_stars = stars_from_score(d.overall_score)  # ★は決定的関数から [カテゴリ12]
     lt = _long_term(d)
     # 不要になった強気コメントを捨て、新アクションのコメントに刷新
     d.comment = _comment(action, d.discount_pct, d.earnings_alert, lt.pct if lt else None)
@@ -90,9 +91,9 @@ def _cap_overvalued(d: HoldingDecision, revisions: list) -> None:
         return
     before = f"{d.action}({d.overall_score}点)"
     capped = min(d.overall_score, config.OVERVALUED_SCORE_CAP)
-    stars, action = score_to_action(capped)
+    _, action = score_to_action(capped)
     d.overall_score = capped
-    d.overall_stars = stars
+    d.overall_stars = stars_from_score(capped)  # ★は決定的関数から [カテゴリ12]
     d.action = action
     lt = _long_term(d)
     d.comment = _comment(action, d.discount_pct, d.earnings_alert, lt.pct if lt else None)
@@ -143,11 +144,18 @@ def _improve_decision(d: HoldingDecision, revisions: list) -> None:
         _set_action(d, "様子見", "適正価格・配当の数値根拠が無いため据え置き", "6.説明性", revisions)
 
     # 5.ポートフォリオ: NISA(非課税)の売却提案(温存推奨) → 保有で温存
-    if getattr(d, "account", None) == "NISA" and d.action in SELL_ACTIONS and d.tax_sell_bias < 0:
+    # ただしポート最適化由来のサイズ調整(sizing_trim)は、リバランス方向を尊重して据え置く。
+    if (
+        getattr(d, "account", None) == "NISA"
+        and d.action in SELL_ACTIONS
+        and d.tax_sell_bias < 0
+        and not d.sizing_trim
+    ):
         _set_action(d, "保有", "NISA(非課税)は枠温存を優先し据え置き", "5.ポートフォリオ", revisions)
 
     # 1.ロジック矛盾: 高スコアなのに売り(税理由なし) → 保有へ整合
-    if d.overall_score >= 85 and d.action in SELL_ACTIONS and not d.tax_note:
+    # サイズ調整(sizing_trim)は「質は高いが比率過大」で売る=矛盾ではないため対象外。
+    if d.overall_score >= 85 and d.action in SELL_ACTIONS and not d.tax_note and not d.sizing_trim:
         _set_action(d, "保有", "高スコアと最終判断の整合", "1.ロジック矛盾", revisions)
 
 

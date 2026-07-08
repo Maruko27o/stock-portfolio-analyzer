@@ -32,11 +32,10 @@ MAX_BUBBLES_PER_CAROUSEL = 10
 
 
 def _price(value: float | None) -> str:
-    if value is None:
-        return "—"
-    if abs(value) >= 1000:
-        return f"{value:,.0f}円"
-    return f"{value:,.2f}"
+    # 金額表示は共通フォーマッタに一本化(円・整数・カンマ) [カテゴリ15]。
+    from stock_analyzer.display import format_yen
+
+    return format_yen(value)
 
 
 def _text(text: str, **kwargs) -> dict:

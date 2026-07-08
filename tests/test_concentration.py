@@ -35,31 +35,33 @@ def _plan(symbol, current_pct, target_pct):
     return RebalancePlan(items=[item], total_value_yen=1_000_000.0, note="n")
 
 
-def test_overweight_buy_is_capped_to_hold():
-    # 現在45% vs 目標25%: 相対+80%/絶対+20pt=大きく超過 → 買い増しを封じる
+def test_overweight_buy_is_reconciled_to_trim():
+    # 現在45% vs 目標25%: リバランスは縮小方向 → 買い増しカードを「一部売却(サイズ調整)」へ
     d = _decision(action="強く買い増し", score=92)
-    caps = concentration.apply_caps([d], _plan("7203.T", 45.0, 25.0))
-    assert len(caps) == 1
-    assert d.action == "保有"
-    assert d.action not in {"買い増し", "強く買い増し"}
-    # スコア・アクションの整合(保有帯)を保つ
-    assert d.overall_score <= 69
-    assert any("保有比率" in r for r in d.reasons)
+    changes = concentration.reconcile_with_rebalance([d], _plan("7203.T", 45.0, 25.0))
+    assert len(changes) == 1
+    assert d.action == "一部売却"
+    assert d.sizing_trim is True
+    # 銘柄の質(スコア)は据え置き、★は決定的関数(floor(92/20)=4)
+    assert d.overall_score == 92
+    assert d.overall_stars == "★★★★☆"
+    assert any("サイズ調整" in r for r in d.reasons)
 
 
-def test_within_tolerance_not_capped():
-    # 現在27% vs 目標25%: 相対+8%/絶対+2pt=閾値未満 → キャップしない
+def test_within_tolerance_not_reconciled():
+    # 現在27% vs 目標25%: 差2pt<許容3pt=維持方向 → 変更しない
     d = _decision(action="買い増し", score=75)
-    caps = concentration.apply_caps([d], _plan("7203.T", 27.0, 25.0))
-    assert caps == []
+    changes = concentration.reconcile_with_rebalance([d], _plan("7203.T", 27.0, 25.0))
+    assert changes == []
     assert d.action == "買い増し"
 
 
-def test_absolute_gate_blocks_small_absolute_gap():
-    # 相対は+30%超だが絶対差が5pt未満(6%→4.5%) → キャップしない(両条件必須)
-    d = _decision(action="買い増し", score=75)
-    caps = concentration.apply_caps([d], _plan("7203.T", 6.0, 4.5))
-    assert caps == []
+def test_neutral_card_with_reduce_becomes_trim():
+    # 様子見(中立)カードでもリバランスが縮小方向なら一部売却へ整合(カテゴリ10の再発ケース)
+    d = _decision(action="保有", score=64)
+    changes = concentration.reconcile_with_rebalance([d], _plan("7203.T", 13.0, 5.0))
+    assert d.action == "一部売却"
+    assert d.sizing_trim is True
 
 
 def test_is_overweight_thresholds():
