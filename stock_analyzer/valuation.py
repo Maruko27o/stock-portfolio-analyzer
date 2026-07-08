@@ -17,6 +17,24 @@ PER_PLAUSIBLE_LOW_MULT = 1 / 3
 PER_PLAUSIBLE_HIGH_MULT = 3.0
 
 
+# [カテゴリ20] 適正価格が現在株価から桁でズレていれば、株式分割の調整不整合や
+# 発行済株式数ベースの取り違えを疑い「要確認」として割安判定から除外する許容比率。
+FAIR_VALUE_DIVERGENCE_HIGH = 5.0
+FAIR_VALUE_DIVERGENCE_LOW = 0.2  # =1/5
+
+
+def fair_value_is_sane(fv: float | None, current_price: float | None) -> bool:
+    """適正価格が現在株価に対して桁でズレていないか [カテゴリ20]。
+
+    分割調整の不整合(分割前EPS×分割後株価 等)は、適正価格を現在価格の数倍〜数分の一に
+    飛ばす。現在価格の1/5〜5倍の範囲を「妥当」とし、外れたら False(要確認)。
+    """
+    if fv is None or current_price is None or current_price <= 0:
+        return True  # 比較材料が無ければ判定しない(既存の欠損処理に委ねる)
+    ratio = fv / current_price
+    return FAIR_VALUE_DIVERGENCE_LOW <= ratio <= FAIR_VALUE_DIVERGENCE_HIGH
+
+
 def per_is_plausible(per: float | None, sector: str | None) -> bool:
     """正のPERが同業種の目安レンジ(1/3〜3倍)に収まっていれば True [カテゴリ14]。
 

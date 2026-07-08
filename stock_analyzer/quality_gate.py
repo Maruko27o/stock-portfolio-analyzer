@@ -111,39 +111,88 @@ def run_gate(data, on_fix) -> tuple[bool, int, list[str]]:
     return (not issues), passes, issues
 
 
+def _fill_rate(d: HoldingDecision) -> float:
+    """データ充足率(欠損項目の割合の裏返し)。"""
+    fields = [
+        d.current_price is not None,
+        d.discount_pct is not None or bool(d.dividend_yield),
+        _long_term(d) is not None and _long_term(d).pct is not None,
+        bool(d.supply_demand_stars),
+        d.risk_reward is not None or d.action not in BUY_ACTIONS,
+    ]
+    return sum(1 for x in fields if x) / len(fields)
+
+
+def _coherence(d: HoldingDecision) -> float:
+    """サブスコア間の整合度。各カテゴリ(テクニカル/ファンダ/需給/市場…)が同じ方向を
+    向いているほど高い。全会一致=1.0、拮抗=0付近。データ無しは0.5(中立)。"""
+    subs = [v for v in (getattr(d, "subscores", {}) or {}).values() if v]
+    total = sum(abs(v) for v in subs)
+    if total == 0:
+        return 0.5
+    net = sum(subs)
+    sign = 1 if net >= 0 else -1
+    agree = sum(abs(v) for v in subs if (1 if v > 0 else -1) == sign)
+    return agree / total
+
+
+# [カテゴリ19] 信頼度の算出要素と重み(合計1.0)。レポートにも内訳を出す。
+CONFIDENCE_WEIGHTS = {
+    "fill": 0.40,        # データ充足率
+    "coherence": 0.25,   # サブスコア整合度
+    "gate": 0.15,        # 品質ゲート通過(全体)
+    "stable": 0.10,      # 直近スコアが急変していない
+    "per_ok": 0.10,      # PER異常値でない
+}
+
+
+def decision_confidence(d: HoldingDecision, data) -> tuple[int, str, list[str]]:
+    """銘柄ごとの分析信頼度(%)・★・内訳 [カテゴリ19]。全銘柄一律にならないよう、
+    銘柄固有の要素(充足率・整合度・急変・PER異常)から算出する。"""
+    gate_passed = bool(getattr(data, "gate_passed", False))
+    jumped = any(getattr(a, "symbol", None) == d.symbol for a in getattr(data, "stability_alerts", []) or [])
+    fill = _fill_rate(d)
+    coh = _coherence(d)
+    w = CONFIDENCE_WEIGHTS
+    frac = (
+        w["fill"] * fill
+        + w["coherence"] * coh
+        + w["gate"] * (1.0 if gate_passed else 0.0)
+        + w["stable"] * (0.0 if jumped else 1.0)
+        + w["per_ok"] * (0.0 if getattr(d, "per_flagged", False) else 1.0)
+    )
+    pct = round(100 * frac)
+    reasons = [f"充足{fill*100:.0f}%", f"整合{coh*100:.0f}%",
+               "ゲート✓" if gate_passed else "ゲート未通過"]
+    if jumped:
+        reasons.append("スコア急変")
+    if getattr(d, "per_flagged", False):
+        reasons.append("PER要確認")
+    # [カテゴリ9] 品質ゲート未通過なら参考値として上限を掛ける(改善は維持)。
+    # 整合違反(violations)は信頼度算出より後に確定するため、ここではゲート状況のみで判定する。
+    if not gate_passed:
+        pct = min(pct, GATE_FAIL_CONFIDENCE_CAP)
+        reasons.append("参考値")
+    pct = max(0, min(100, pct))
+    filled = min(5, max(0, round(pct / 20)))
+    stars = "★" * filled + "☆" * (5 - filled)
+    return pct, stars, reasons
+
+
 def confidence(data) -> tuple[int, str, list[str]]:
-    """分析信頼度(%)・★・理由を返す。データ充足率＋レビュー通過＋ゲート通過から算出。"""
+    """レポート全体(ヘッダー用)の分析信頼度。銘柄別信頼度の平均＋通過状況の要約。"""
     pool = _pool(data)
     if not pool:
         return 0, "☆☆☆☆☆", ["分析対象なし"]
-
-    def fill(d: HoldingDecision) -> float:
-        fields = [
-            d.current_price is not None,
-            d.discount_pct is not None or bool(d.dividend_yield),
-            _long_term(d) is not None and _long_term(d).pct is not None,
-            bool(d.supply_demand_stars),
-            d.risk_reward is not None or d.action not in BUY_ACTIONS,
-        ]
-        return sum(1 for x in fields if x) / len(fields)
-
-    fill_rate = sum(fill(d) for d in pool) / len(pool)
-    review_clean = not getattr(data, "review", [])
+    pcts = [decision_confidence(d, data)[0] for d in pool]
+    avg = round(sum(pcts) / len(pcts))
     gate_passed = getattr(data, "gate_passed", False)
-    violations = getattr(data, "violations", []) or []
-
-    pct = round(55 + 35 * fill_rate + (5 if review_clean else 0) + (5 if gate_passed else 0))
-    pct = max(0, min(100, pct))
     reasons = [
-        f"データ充足率{fill_rate * 100:.0f}%",
-        "レビュー通過" if review_clean else "レビュー指摘あり",
+        f"銘柄別信頼度の平均{avg}%(銘柄ごとに変動)",
         "品質ゲート通過" if gate_passed else "品質ゲート未通過",
     ]
-    # [カテゴリ9] 内部チェック(品質ゲート/最終整合)が未通過なら信頼度を自動的に引き下げ、
-    # 「参考値」であることを明示する。高信頼度と未通過が併存する矛盾を構造的に防ぐ。
-    if not gate_passed or violations:
-        pct = min(pct, GATE_FAIL_CONFIDENCE_CAP)
-        reasons.append("品質チェック未完了のため参考値(信頼度を引き下げ)")
-    filled = min(5, max(1, round(pct / 20)))
+    if not gate_passed or (getattr(data, "violations", []) or []):
+        reasons.append("品質チェック未完了のため参考値")
+    filled = min(5, max(1, round(avg / 20)))
     stars = "★" * filled + "☆" * (5 - filled)
-    return pct, stars, reasons
+    return avg, stars, reasons

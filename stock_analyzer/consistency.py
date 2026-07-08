@@ -46,38 +46,24 @@ def _pool(data) -> list[HoldingDecision]:
     return pool
 
 
-SELL_SIDE = {"一部売却", "売却推奨"}
-NEUTRAL_SIDE = {"保有", "様子見"}
+# ポート都合(比率調整・集中緩和など)を示す、個別カードに出してはいけない文言 [カテゴリ17]。
+PORTFOLIO_WORDING = ("比率調整", "偏り是正", "集中緩和", "リバランス", "縮小(", "比率是正")
 
 
-def _check_action_vs_rebalance(data) -> list[ConsistencyViolation]:
-    """1/10. 個別カードのアクションとリバランス方向の矛盾を検出する。
+def _check_card_no_portfolio_wording(data) -> list[ConsistencyViolation]:
+    """1/17. 個別カードの推奨アクション文言に、ポート調整由来の語が混入していないか。
 
-    - 買い/中立カード × 縮小指示(売却方向) → 矛盾
-    - 売りカード × 買い増し指示 → 矛盾
+    個別カードは銘柄単体評価のみ。ポート比率調整は独立の rebalance/結論セクションで表示する。
     """
+    from stock_analyzer.final_output import recommended_action
+
     out: list[ConsistencyViolation] = []
-    rebalance = getattr(data, "rebalance", None)
-    if rebalance is None:
-        return out
-    directions = {it.symbol: it for it in rebalance.items}
-    for d in _held(data):
-        it = directions.get(d.symbol)
-        if it is None:
-            continue
-        card_reduce = d.action in SELL_SIDE
-        card_add = d.action in BUY_ACTIONS
-        if it.direction == "売却" and not card_reduce:
+    for d in _pool(data):
+        label = recommended_action(d)
+        if any(w in label for w in PORTFOLIO_WORDING):
             out.append(ConsistencyViolation(
-                "1.方向矛盾", d.symbol,
-                f"個別カードは「{d.action}」だがリバランスは縮小"
-                f"({it.current_pct:.0f}%→{it.target_pct:.0f}%)",
-            ))
-        elif it.direction == "買い増し" and card_reduce and not card_add:
-            out.append(ConsistencyViolation(
-                "1.方向矛盾", d.symbol,
-                f"個別カードは「{d.action}」だがリバランスは買い増し"
-                f"({it.current_pct:.0f}%→{it.target_pct:.0f}%)",
+                "17.カード混入", d.symbol,
+                f"個別カードのアクション「{label}」にポート調整由来の文言が混入",
             ))
     return out
 
@@ -207,6 +193,97 @@ def _check_row_count(data) -> list[ConsistencyViolation]:
     return out
 
 
+def _check_swing_ranking(data) -> list[ConsistencyViolation]:
+    """2/18. 新規候補ランキング(swing_picks)がスコア降順になっているか(全ウィジェット横断)。"""
+    out: list[ConsistencyViolation] = []
+    picks = getattr(data, "swing_picks", None) or []
+    scores = [p.get("score") for p in picks if p.get("score") is not None]
+    if scores != sorted(scores, reverse=True):
+        out.append(ConsistencyViolation(
+            "18.候補順位", None, f"新規候補ランキングがスコア降順でない: {scores}",
+        ))
+    return out
+
+
+def _check_confidence_variance(data) -> list[ConsistencyViolation]:
+    """3/19. 信頼度が全銘柄で同一値になっていないか(指標として情報量があるか)。"""
+    out: list[ConsistencyViolation] = []
+    pool = _pool(data)
+    pcts = {getattr(d, "confidence_pct", 0) for d in pool}
+    # 実レポートは多数銘柄。5銘柄以上が全て同一値=固定値化のバグとみなす。
+    if len(pool) >= 5 and len(pcts) == 1:
+        out.append(ConsistencyViolation(
+            "19.信頼度一律", None,
+            f"信頼度が全{len(pool)}銘柄で同一値({next(iter(pcts))}%)=情報量なし",
+        ))
+    return out
+
+
+def _check_fair_value_sanity(data) -> list[ConsistencyViolation]:
+    """4/20. 適正価格が桁乖離の銘柄は割安判定(discount)に使われず要確認になっているか。"""
+    out: list[ConsistencyViolation] = []
+    for d in _pool(data):
+        if getattr(d, "valuation_flagged", False):
+            if d.discount_pct is not None:
+                out.append(ConsistencyViolation(
+                    "20.適正価格乖離", d.symbol, "適正価格が桁乖離なのに割安率がまだ使われている",
+                ))
+            elif not any("桁乖離" in r or "要確認" in r for r in d.risks):
+                out.append(ConsistencyViolation(
+                    "20.適正価格乖離", d.symbol, "適正価格の桁乖離だが『要確認』表示が無い",
+                ))
+    return out
+
+
+def _dups(symbols: list[str]) -> set[str]:
+    seen: set[str] = set()
+    dup: set[str] = set()
+    for s in symbols:
+        (dup if s in seen else seen).add(s)
+    return dup
+
+
+def _check_ticker_dedup(data) -> list[ConsistencyViolation]:
+    """5/21. 同一セクション内でティッカーが重複表示されていないか。"""
+    out: list[ConsistencyViolation] = []
+    conclusion = getattr(data, "conclusion", None)
+    if conclusion is not None:
+        for label, items in (("買い", conclusion.buys), ("売り", conclusion.sells),
+                             ("比率是正", conclusion.rebalance_moves)):
+            for sym in _dups([it.symbol for it in items]):
+                out.append(ConsistencyViolation("21.重複表示", sym, f"結論の{label}リストで重複"))
+        # ①単体売り と ②比率是正 の間でも同一ティッカーを二重に出さない
+        overlap = {it.symbol for it in conclusion.sells} & {it.symbol for it in conclusion.rebalance_moves}
+        for sym in overlap:
+            out.append(ConsistencyViolation("21.重複表示", sym, "単体売りと比率是正に二重掲載"))
+    for sym in _dups([p.get("heading", "").split()[0] for p in getattr(data, "swing_picks", []) or []]):
+        out.append(ConsistencyViolation("21.重複表示", sym, "新規候補リストで重複"))
+    return out
+
+
+def _check_name_master(data) -> list[ConsistencyViolation]:
+    """6/22. ティッカーと社名の対応が正規マスタと一致しているか。"""
+    out: list[ConsistencyViolation] = []
+    for d in _pool(data):
+        if getattr(d, "name_mismatch", False):
+            out.append(ConsistencyViolation(
+                "22.社名不一致", d.symbol, f"社名『{d.name}』が正規マスタと不一致",
+            ))
+    return out
+
+
+def _check_rsi_extreme(data) -> list[ConsistencyViolation]:
+    """7/23. 極端なRSI過熱と積極的買いアクションが同時に出ていないか。"""
+    out: list[ConsistencyViolation] = []
+    for d in _pool(data):
+        rsi = getattr(d, "rsi", None)
+        if rsi is not None and rsi >= config.RSI_EXTREME_OVERBOUGHT and d.action in BUY_ACTIONS:
+            out.append(ConsistencyViolation(
+                "23.過熱買い", d.symbol, f"RSI{rsi:.0f}の極端な過熱なのに「{d.action}」",
+            ))
+    return out
+
+
 def _check_gate_wording(data) -> list[ConsistencyViolation]:
     """7. 品質ゲート未通過時に最上位アクション文言が出力されていないか。"""
     out: list[ConsistencyViolation] = []
@@ -224,16 +301,22 @@ def _check_gate_wording(data) -> list[ConsistencyViolation]:
 
 
 CHECKS = (
-    _check_action_vs_rebalance,
-    _check_overvalued,
-    _check_ranking,
-    _check_stars,
-    _check_allocation_display,
-    _check_dates,
-    _check_duplicate_company,
-    _check_per_validity,
-    _check_row_count,
-    _check_gate_wording,
+    _check_card_no_portfolio_wording,  # 17
+    _check_overvalued,                 # 2
+    _check_ranking,                    # 11
+    _check_swing_ranking,              # 18
+    _check_stars,                      # 12
+    _check_allocation_display,         # 13
+    _check_confidence_variance,        # 19
+    _check_fair_value_sanity,          # 20
+    _check_ticker_dedup,               # 21
+    _check_name_master,                # 22
+    _check_rsi_extreme,                # 23
+    _check_dates,                      # 5
+    _check_duplicate_company,          # 6
+    _check_per_validity,               # 14
+    _check_row_count,                  # 16
+    _check_gate_wording,               # 9
 )
 
 

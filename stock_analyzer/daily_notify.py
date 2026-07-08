@@ -5,6 +5,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -60,6 +61,30 @@ def load_holdings(portfolio_path: str | None) -> list[Holding]:
     raise SystemExit(1)
 
 
+def _collect_with_retry(holdings, include_swing_pick: bool, attempts: int = 3):
+    """データ収集を指数バックオフで再試行する(スケジュール実行での一時的な取得失敗対策)。
+
+    yfinance のレート制限や一時的なネットワーク不調で全銘柄取得に失敗すると通知が落ちるため、
+    収集(=送信前)だけを最大 attempts 回リトライする。送信は成功した収集後に1回だけ行う。
+    """
+    delay = 8.0
+    for attempt in range(attempts):
+        try:
+            data = collect_report_data(holdings, include_swing_pick=include_swing_pick)
+            if not data.is_empty():
+                return data
+            print(f"分析データが空でした(試行{attempt + 1}/{attempts})", file=sys.stderr)
+        except Exception as exc:  # noqa: BLE001 一時失敗はリトライ、最終失敗のみ送出
+            print(f"収集に失敗(試行{attempt + 1}/{attempts}): {exc}", file=sys.stderr)
+            if attempt == attempts - 1:
+                raise
+        if attempt < attempts - 1:
+            time.sleep(delay)
+            delay *= 2
+    # 全リトライで空だった場合も、呼び出し側の空チェックに委ねる。
+    return collect_report_data(holdings, include_swing_pick=include_swing_pick)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="保有銘柄の分析レポートを通知します")
     parser.add_argument(
@@ -94,10 +119,10 @@ def main() -> None:
     if symbols_text.strip():
         # On-demand: analyze just the requested tickers (skip the slow universe scan).
         holdings = holdings_from_symbols(symbols_text)
-        data = collect_report_data(holdings, include_swing_pick=False)
+        data = _collect_with_retry(holdings, include_swing_pick=False)
     else:
         holdings = load_holdings(args.portfolio)
-        data = collect_report_data(holdings)  # fetched once, rendered per channel
+        data = _collect_with_retry(holdings, include_swing_pick=True)  # fetched once, rendered per channel
 
     if discord_url:
         embeds = discord_embeds_from(data)

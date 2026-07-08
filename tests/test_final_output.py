@@ -40,7 +40,8 @@ def test_recommended_action_mapping():
     assert recommended_action(_decision(action="保有")) == "様子見"
     assert recommended_action(_decision(action="保有", is_candidate=True)) == "押し目待ち"
     assert recommended_action(_decision(action="一部売却", profit_pct=10.0)) == "利益確定"
-    assert recommended_action(_decision(action="売却推奨")) == "売却"
+    assert recommended_action(_decision(action="一部売却", profit_pct=-3.0)) == "一部売却"
+    assert recommended_action(_decision(action="売却推奨")) == "損切り"
 
 
 def test_recommended_action_appends_earnings_wait():

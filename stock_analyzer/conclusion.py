@@ -83,25 +83,31 @@ def build_conclusion(
         if d.action in BUY_ACTIONS
     ][:3]
 
-    # --- 今日売る: 保有のうち売却シグナル ---
+    # --- ①今日売る(銘柄単体評価): 保有のうち売却シグナル。同一ティッカーは1回だけ [カテゴリ21] ---
     sell_decisions = sorted(
         (d for d in decisions if not d.is_candidate and d.action in SELL_ACTIONS),
         key=_sell_priority,
     )
-    sells = [
-        ActionItem(d.symbol, d.name, d.action, _sell_reason(d), False) for d in sell_decisions
-    ]
+    sells: list[ActionItem] = []
+    sell_symbols: set[str] = set()
+    for d in sell_decisions:
+        if d.symbol in sell_symbols:
+            continue
+        sell_symbols.add(d.symbol)
+        sells.append(ActionItem(d.symbol, d.name, d.action, _sell_reason(d), False))
 
-    # --- 比率是正: リバランスで大きく縮小推奨の銘柄 ---
-    # 買い候補に入っている銘柄(買いシグナルあり)は矛盾するので比率是正から除く。
-    # 「新規資金では魅力的だが、既に持ちすぎ」は買い側を優先し、縮小は載せない。
+    # --- ②比率是正(ポート調整): リバランスで大きく縮小推奨の銘柄。①単体売り・買い候補とは
+    # 別セクションに分離し、同一ティッカーの重複も排除する [カテゴリ17c/21] ---
     buy_symbols = {b.symbol for b in buys}
     rebalance_moves: list[ActionItem] = []
+    seen_trim: set[str] = set()
     if rebalance is not None:
         for it in rebalance.items:
-            if it.symbol in buy_symbols:
+            # 買い候補・単体売りに既出の銘柄は、比率是正リストに重複させない。
+            if it.symbol in buy_symbols or it.symbol in sell_symbols or it.symbol in seen_trim:
                 continue
             if it.direction == "売却" and it.diff_pct <= -REBALANCE_SELL_THRESHOLD:
+                seen_trim.add(it.symbol)
                 shares = f"（約{it.approx_shares}株）" if it.approx_shares else ""
                 rebalance_moves.append(
                     ActionItem(
@@ -152,15 +158,17 @@ def _build_headline(
     else:
         lines.append("買い: 新規・買い増しの急ぎはなし")
 
-    sell_names = _names(sells + rebalance_moves)
-    if sell_names:
-        lines.append(f"売り: {sell_names}")
+    # [カテゴリ17c] ①銘柄単体評価の売り と ②ポート比率調整 を混ぜず、別行で示す。
+    if sells:
+        lines.append(f"売り(単体評価): {_names(sells)}")
     else:
-        lines.append("売り: 売却すべき保有はなし")
+        lines.append("売り(単体評価): 売却すべき保有はなし")
+    if rebalance_moves:
+        lines.append(f"比率調整(ポート): {_names(rebalance_moves)}")
 
     if cash_pct is not None:
         lines.append(f"現金比率の推奨: {cash_pct:.0f}%")
-    return lines[:3]
+    return lines[:4]
 
 
 def format_conclusion_lines(conclusion: DailyConclusion) -> list[str]:
@@ -174,12 +182,12 @@ def format_conclusion_lines(conclusion: DailyConclusion) -> list[str]:
             lines.append(f"・{it.name or it.symbol}{tag} {it.action}（{it.reason}）")
     if conclusion.sells:
         lines.append("")
-        lines.append("■今日の売り候補")
+        lines.append("■今日の売り候補(銘柄単体評価)")
         for it in conclusion.sells:
             lines.append(f"・{it.name or it.symbol} {it.action}（{it.reason}）")
     if conclusion.rebalance_moves:
         lines.append("")
-        lines.append("■比率の是正")
+        lines.append("■比率の是正(ポート調整・銘柄評価とは別)")
         for it in conclusion.rebalance_moves:
             lines.append(f"・{it.name or it.symbol} {it.reason}")
     return lines

@@ -45,12 +45,14 @@ def test_clean_report_has_no_violations():
     assert consistency.check_all(view) == []
 
 
-def test_check1_action_vs_rebalance_contradiction():
+def test_card_buy_with_rebalance_reduce_is_not_a_violation():
+    # [カテゴリ17] 個別カード(単体評価=買い増し)とリバランス(縮小)は別セクションなので
+    # 方向が違っても矛盾ではない(混入していなければOK)。
     d = _decision(action="買い増し", score=72)
     item = RebalanceItem("7203.T", "t", 45.0, 25.0, -20.0, "売却", 10, 1000.0)
     view = _View([d], allocation=_alloc([d]), rebalance=RebalancePlan([item], 1.0, "n"))
     v = consistency.check_all(view)
-    assert any(x.rule == "1.方向矛盾" for x in v)
+    assert not any(x.rule.startswith("1.") or x.rule.startswith("17.") for x in v)
 
 
 def test_check2_overvalued_strong_buy():

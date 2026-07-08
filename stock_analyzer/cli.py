@@ -9,7 +9,6 @@ from stock_analyzer.allocation import (
     AllocationPlan,
     format_allocation_lines,
     optimize_allocation,
-    priority_value,
 )
 from stock_analyzer.analysis import HoldingAnalysis, analyze_holding
 from stock_analyzer.conclusion import DailyConclusion, build_conclusion, format_conclusion_lines
@@ -62,8 +61,8 @@ from stock_analyzer.rebalance import RebalancePlan, build_rebalance, format_reba
 from stock_analyzer.review import rule_based_review
 from stock_analyzer import (
     aliases,
-    concentration,
     consistency,
+    ranking,
     self_improve,
     stability,
     quality_gate,
@@ -405,8 +404,8 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
             c for c in _dedup_by_company(candidate_decisions)
             if _company_key(c) not in held_companies
         ]
-        # 保有株と同じ「割安×成長×期待リターン」の優先度で並べ、TOP3を注目候補に。
-        candidate_decisions.sort(key=priority_value, reverse=True)
+        # [カテゴリ18] 候補ランキングも共通ソート(総合スコア降順)を必ず経由する。
+        candidate_decisions = ranking.by_score(candidate_decisions)
         for cand in candidate_decisions[:SWING_TOP_N]:
             heading = f"{cand.symbol} {cand.name}" if cand.name else cand.symbol
             swing_picks.append(
@@ -450,9 +449,9 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
 
     def _recompute() -> None:
         # 判断/文章が変わったら配分・リバランス・結論・候補・レビューを取り直す。
-        # [カテゴリ1] 先にリバランスで現在比率→目標比率を出し、目標超過の買い増しを封じる。
+        # [カテゴリ17] 個別カード(decisions)はここでリバランス由来の書き換えを一切しない。
+        # ポート比率調整は rebalance / conclusion の専用セクションだけに出す(混入させない)。
         data.rebalance = build_rebalance(decisions, quantities)
-        data.concentration_caps = concentration.apply_caps(decisions, data.rebalance)
         data.allocation = optimize_allocation(decisions + candidate_decisions, stance, vix)
         data.conclusion = build_conclusion(decisions, data.allocation, data.rebalance)
         data.swing_picks = _rebuild_swing_picks(candidate_decisions, decisions)
@@ -473,8 +472,12 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
     _annotate_stability(data, as_of)
     # ⑤' 必須の最終自動検証(全銘柄): 7項目の整合を確認し、違反を保持する。
     # 違反があれば信頼度を引き下げ(下の confidence)、即時アクション文言を封じる(final_output)。
+    # [カテゴリ19] 先に銘柄ごとの信頼度を算出して各カードに載せる(全銘柄一律を防ぐ)。
+    # 整合チェック(信頼度ばらつき検証)より前に確定させる必要がある。
+    for d in list(decisions) + list(candidate_decisions):
+        d.confidence_pct, _stars, d.confidence_reasons = quality_gate.decision_confidence(d, data)
     data.violations = consistency.check_all(data)
-    data.confidence = quality_gate.confidence(data)  # violations 反映後に算出
+    data.confidence = quality_gate.confidence(data)  # ヘッダー用(銘柄別の平均)
     return data
 
 
@@ -512,7 +515,7 @@ def _rebuild_swing_picks(candidate_decisions: list, decisions: list) -> list[dic
     """自己改修でスコア/判断が変わった後、注目候補TOP3を作り直す。"""
     held_companies = {_company_key(d) for d in decisions}
     pool = [c for c in candidate_decisions if _company_key(c) not in held_companies]
-    pool.sort(key=priority_value, reverse=True)
+    pool = ranking.by_score(pool)  # [カテゴリ18] 共通ソート(総合スコア降順)を経由
     picks = []
     for cand in pool[:SWING_TOP_N]:
         heading = f"{cand.symbol} {cand.name}" if cand.name else cand.symbol

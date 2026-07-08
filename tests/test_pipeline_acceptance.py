@@ -73,9 +73,9 @@ def test_overvalued_strong_buy_is_self_healed():
     assert not any(v.rule == "2.割高強気" for v in data.violations)
 
 
-def test_overweight_neutral_card_is_reconciled_to_trim():
-    # [カテゴリ10 再発] 保有比率が過大な「保有(現状維持)」カードは、リバランスの縮小指示と
-    # 矛盾しないよう「一部売却(サイズ調整)」へ整合され、方向矛盾の違反が0になる。
+def test_overweight_card_stays_single_stock_trim_only_in_rebalance():
+    # [カテゴリ17] 保有比率が過大でも、個別カードのアクションは銘柄単体評価のまま(保有)。
+    # ポート由来の縮小は個別カードに混入させず、リバランスセクションにのみ出す。違反0。
     big = _decision("BIG.T", overall_score=82, action="保有", discount_pct=-4.0)
     big.current_price = 5000.0  # 大きな評価額でポートを占有
     small = _decision("SML.T", overall_score=60, action="様子見", discount_pct=1.0)
@@ -83,11 +83,22 @@ def test_overweight_neutral_card_is_reconciled_to_trim():
     data = _run([Holding("BIG.T", 100, 4000.0), Holding("SML.T", 10, 480.0)],
                 {"BIG.T": big, "SML.T": small})
     result = {d.symbol: d for d in data.decisions}["BIG.T"]
-    # ポート最適化に合わせサイズ調整(一部売却)へ整合
-    assert result.action == "一部売却"
-    assert result.sizing_trim is True
-    # 方向矛盾(check #1)を含め、最終整合チェックは違反0
+    # 個別カードは単体評価のまま(ポート都合で書き換えない)
+    assert result.action == "保有"
+    # 縮小指示はリバランスセクションにのみ存在
+    assert any(it.symbol == "BIG.T" and it.direction == "売却" for it in data.rebalance.items)
+    # 最終整合チェックは違反0(方向差は別セクションなので矛盾ではない)
     assert data.violations == [], [f"{v.rule}:{v.detail}" for v in data.violations]
+
+
+def test_rsi_extreme_buy_is_self_healed():
+    # [カテゴリ23] RSI92 の過熱なのに「買い増し」→ 自己改修で様子見へ格下げ、違反0。
+    hot = _decision("HOT.T", overall_score=80, action="買い増し", discount_pct=-6.0)
+    hot.rsi = 92.0
+    data = _run([Holding("HOT.T", 10, 900.0)], {"HOT.T": hot})
+    healed = {d.symbol: d for d in data.decisions}["HOT.T"]
+    assert healed.action not in ("強く買い増し", "買い増し")
+    assert not any(v.rule == "23.過熱買い" for v in data.violations)
 
 
 def test_bearish_market_raises_cash_range():

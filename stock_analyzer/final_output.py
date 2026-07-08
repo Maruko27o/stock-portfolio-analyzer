@@ -13,14 +13,16 @@ from __future__ import annotations
 from stock_analyzer.decision import SELL_ACTIONS, HoldingDecision, stars_from_score
 from stock_analyzer.display import format_yen, should_show_allocation
 
-# 6段階の内部アクション → ユーザー指定の推奨アクション語彙。
+# 6段階の内部アクション → 個別銘柄カード専用の推奨アクション語彙 [カテゴリ17]。
+# 銘柄単体の技術・ファンダ評価のみに基づく語彙。ポート都合(比率調整・集中緩和)の
+# 文言は一切含めない(=個別カードにポート由来の指示を混入させない)。
 _ACTION_LABEL = {
     "強く買い増し": "今すぐ買う",
     "買い増し": "分割買い",
     "保有": "様子見",
     "様子見": "押し目待ち",
     "一部売却": "一部売却",
-    "売却推奨": "売却",
+    "売却推奨": "損切り",
 }
 
 # 品質チェック未通過時に封じる即時アクション文言と、その代替(1段慎重側)。
@@ -43,9 +45,9 @@ def recommended_action(d: HoldingDecision, guarded: bool = False) -> str:
     封じ、1段慎重な表現へ差し替える [カテゴリ9b]。
     """
     label = _ACTION_LABEL.get(d.action, d.action)
-    if not d.is_candidate and d.action == "一部売却":
-        # ポート最適化由来の比率調整と、利益確定を区別して表示する [カテゴリ10]。
-        label = "一部売却(比率調整)" if d.sizing_trim else ("利益確定" if (d.profit_pct or 0) > 0 else "一部売却")
+    # 個別カードは銘柄単体評価のみ。利確/損切りは単体の売り理由(ポート比率調整ではない)。
+    if not d.is_candidate and d.action == "一部売却" and (d.profit_pct or 0) > 0:
+        label = "利益確定"
     if d.is_candidate and d.action == "保有":
         label = "押し目待ち"
     if guarded and label in _IMMEDIATE_LABELS:
@@ -113,14 +115,17 @@ def final_card_lines(d: HoldingDecision, ctx: dict) -> list[str]:
     lt = _long_term(d)
     name = d.name or d.symbol
     tag = "🔍監視 " if d.is_candidate else ""
-    pct = ctx.get("confidence_pct", 0)
+    # [カテゴリ19] 信頼度は銘柄ごと(全銘柄一律にしない)。内訳も簡潔に添える。
+    pct = getattr(d, "confidence_pct", 0) or ctx.get("confidence_pct", 0)
+    breakdown = "／".join(getattr(d, "confidence_reasons", []) or [])
 
     lines: list[str] = []
     # 見出し行(結論・推奨アクションを1行に)
     lines.append(f"{tag}{name}（{d.symbol}）― {recommended_action(d, guarded)}")
     # スコア・順位・信頼度(★は決定的関数から) [カテゴリ12]
     rank = f"買い順位{d.rank}位" if d.rank else "買い順位—"
-    lines.append(f"総合{d.overall_score}点 {stars_from_score(d.overall_score)} ／ {rank} ／ 信頼度{pct}%")
+    conf = f"信頼度{pct}%" + (f"（{breakdown}）" if breakdown else "")
+    lines.append(f"総合{d.overall_score}点 {stars_from_score(d.overall_score)} ／ {rank} ／ {conf}")
     # 適正価格・割安率・期間別期待リターン
     lines.append(
         f"適正価格{_price(d.fair_value)}（割安率{_pct(d.discount_pct)}）"
