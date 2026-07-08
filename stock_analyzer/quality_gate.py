@@ -22,7 +22,8 @@ MAX_GATE_PASSES = 3
 EXTREME_OVERVALUED = 12.0
 UNREALISTIC_RETURN = 40.0
 # [カテゴリ9] 品質ゲート未通過/整合違反があるとき、分析信頼度をこの上限まで引き下げる。
-GATE_FAIL_CONFIDENCE_CAP = 60
+# (旧) ゲート未通過時に信頼度を一律クリップしていた上限。銘柄別の情報を潰すため撤去。
+# 参考: 現在はゲートを重み付き1要素(CONFIDENCE_WEIGHTS['gate'])として反映する。
 
 
 def _long_term(d: HoldingDecision):
@@ -137,12 +138,14 @@ def _coherence(d: HoldingDecision) -> float:
 
 
 # [カテゴリ19] 信頼度の算出要素と重み(合計1.0)。レポートにも内訳を出す。
+# 銘柄固有の差(整合度・PER異常)の寄与を厚くして、銘柄ごとに信頼度が動くようにする。
+# ゲートは重み付きの1要素として扱い、未通過でも一律固定値に潰さない(=銘柄別の情報を保つ)。
 CONFIDENCE_WEIGHTS = {
-    "fill": 0.40,        # データ充足率
-    "coherence": 0.25,   # サブスコア整合度
+    "fill": 0.30,        # データ充足率
+    "coherence": 0.35,   # サブスコア整合度(銘柄差が出る主要因)
     "gate": 0.15,        # 品質ゲート通過(全体)
-    "stable": 0.10,      # 直近スコアが急変していない
-    "per_ok": 0.10,      # PER異常値でない
+    "stable": 0.05,      # 直近スコアが急変していない
+    "per_ok": 0.15,      # PER異常値でない(銘柄差)
 }
 
 
@@ -168,10 +171,10 @@ def decision_confidence(d: HoldingDecision, data) -> tuple[int, str, list[str]]:
         reasons.append("スコア急変")
     if getattr(d, "per_flagged", False):
         reasons.append("PER要確認")
-    # [カテゴリ9] 品質ゲート未通過なら参考値として上限を掛ける(改善は維持)。
-    # 整合違反(violations)は信頼度算出より後に確定するため、ここではゲート状況のみで判定する。
+    # [カテゴリ9/19] 品質ゲート未通過は「参考値」と明示する(改善は維持)。ただし60への一律
+    # クリップはしない — 銘柄別の信頼度が全て同一値に潰れてしまい情報量が失われるため、
+    # ゲートは上の重み(0.15)で反映済みとし、ここでは注記のみ付ける。
     if not gate_passed:
-        pct = min(pct, GATE_FAIL_CONFIDENCE_CAP)
         reasons.append("参考値")
     pct = max(0, min(100, pct))
     filled = min(5, max(0, round(pct / 20)))

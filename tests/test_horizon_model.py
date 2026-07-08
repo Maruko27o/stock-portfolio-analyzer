@@ -86,7 +86,7 @@ def test_expected_returns_three_horizons_and_labels():
 
 
 def test_expected_returns_uses_backtest_when_present():
-    a = _analysis()
+    a = _analysis(momentum=None)  # 勢い補正を無効化しバックテスト帯の素点を検証
     summary = build_summary(a, "中立")
     band = summary.price_score
     from stock_analyzer.backtest import band_label
@@ -100,5 +100,21 @@ def test_expected_returns_uses_backtest_when_present():
     }
     horizons = expected_returns(summary, a, stats)
     short, mid, _ = horizons
-    assert short.pct == 2.5 and short.stars == "★★★★"  # count>=1000
+    assert short.pct == 2.5 and short.stars == "★★★★"  # count>=1000(勢い補正なし)
     assert mid.pct == 6.0 and mid.stars == "★★★"  # count>=300
+
+
+def test_expected_returns_momentum_tilt_differentiates():
+    # [Fix2] 同じバックテスト帯でも、直近モメンタムが違えば短期/中期の期待値が変わる。
+    from stock_analyzer.backtest import band_label
+
+    up = _analysis(momentum=20.0)
+    flat = _analysis(momentum=0.0)
+    s_up = build_summary(up, "中立")
+    s_flat = build_summary(flat, "中立")
+    label = band_label(s_up.price_score)
+    stats = {"rules": {"5営業日後売却": {"bands": {label: {"expectancy": 1.0, "count": 1500}}},
+                       "20営業日後売却": {"bands": {label: {"expectancy": 2.0, "count": 1500}}}}}
+    short_up = expected_returns(s_up, up, stats)[0].pct
+    short_flat = expected_returns(s_flat, flat, stats)[0].pct
+    assert short_up != short_flat  # 銘柄固有の勢いで差が出る

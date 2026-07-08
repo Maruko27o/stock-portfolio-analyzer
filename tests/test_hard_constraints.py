@@ -54,14 +54,17 @@ class _View:
         self.violations = violations or []
 
 
-def test_confidence_capped_when_gate_failed():
+def test_confidence_lowered_when_gate_failed():
+    # ゲート未通過は信頼度を下げ「参考値」を付すが、60への一律クリップはしない
+    # (銘柄別の情報を潰さない=Fix1)。ヘッダーは銘柄別平均。
     d = _decision(action="買い増し", discount=-5.0)
     passed = confidence(_View([d], gate_passed=True))
     failed = confidence(_View([d], gate_passed=False))
-    assert failed[0] <= config.OVERVALUED_SCORE_CAP  # 参考: 60以下
-    assert failed[0] <= 60
-    assert failed[0] < passed[0]
-    assert any("参考値" in r for r in failed[2])
+    assert failed[0] < passed[0]  # 未通過は下がる
+    # 銘柄別信頼度そのものにも「参考値」注記が付く
+    from stock_analyzer.quality_gate import decision_confidence
+    _pct, _stars, reasons = decision_confidence(d, _View([d], gate_passed=False))
+    assert any("参考値" in r for r in reasons)
 
 
 def test_recommended_action_guarded_suppresses_immediate():

@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+from stock_analyzer.conclusion import BUY_ACTIONS
 from stock_analyzer.decision import SELL_ACTIONS, HoldingDecision, stars_from_score
 from stock_analyzer.display import format_yen, should_show_allocation
 
@@ -123,7 +124,12 @@ def final_card_lines(d: HoldingDecision, ctx: dict) -> list[str]:
     # 見出し行(結論・推奨アクションを1行に)
     lines.append(f"{tag}{name}（{d.symbol}）― {recommended_action(d, guarded)}")
     # スコア・順位・信頼度(★は決定的関数から) [カテゴリ12]
-    rank = f"買い順位{d.rank}位" if d.rank else "買い順位—"
+    # 「買い順位」は買い方向アクションのみに表示する。非買い(様子見/押し目待ち/売り)は
+    # 買い候補ではないため順位を出さない(誤解防止)。
+    if d.action in BUY_ACTIONS and d.rank:
+        rank = f"買い順位{d.rank}位"
+    else:
+        rank = "買い順位—(対象外)"
     conf = f"信頼度{pct}%" + (f"（{breakdown}）" if breakdown else "")
     lines.append(f"総合{d.overall_score}点 {stars_from_score(d.overall_score)} ／ {rank} ／ {conf}")
     # 適正価格・割安率・期間別期待リターン

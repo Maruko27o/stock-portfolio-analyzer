@@ -198,6 +198,22 @@ def long_term_estimate(analysis: HoldingAnalysis) -> tuple[float | None, str | N
     return total, stars, reason
 
 
+# 短期・中期の「勢い」補正。バックテスト帯平均(スコア帯の期待値)は同帯の銘柄で同値に
+# なり情報量が乏しいため、銘柄固有の直近モメンタム(10日騰落率)で小幅に色付けする。
+# 過大化しないよう厳しくクランプし、過熱/売られすぎは短中期の反転方向へ少し寄せる。
+def _momentum_tilt(analysis: HoldingAnalysis, scale: float, cap: float) -> float:
+    m = analysis.momentum  # 直近10営業日の騰落率(%)
+    if m is None:
+        return 0.0
+    tilt = max(-cap, min(cap, m * scale))
+    if analysis.rsi is not None:
+        if analysis.rsi >= 70:
+            tilt -= 0.5  # 過熱は短中期で反落しやすい
+        elif analysis.rsi <= 30:
+            tilt += 0.5  # 売られすぎは反発余地
+    return round(tilt, 1)
+
+
 def expected_returns(
     summary,
     analysis: HoldingAnalysis,
@@ -206,6 +222,7 @@ def expected_returns(
     """3期間(1週間・1ヶ月・半年〜1年)の期待リターンを返す。
 
     summary は HoldingSummary(price_score でバックテスト帯を照会)。
+    短期・中期はバックテスト帯平均を土台に、銘柄固有の勢い補正を小幅に加える(=同帯でも銘柄差)。
     """
     by_days = {d["days"]: d for d in horizon_expectations(backtest_stats, summary.price_score)}
 
@@ -213,11 +230,13 @@ def expected_returns(
 
     five = by_days.get(5)
     if five is not None:
-        reason = _short_reason(analysis, five["expectancy"])
+        tilt = _momentum_tilt(analysis, scale=0.05, cap=2.0)
+        pct = round(five["expectancy"] + tilt, 1)
+        basis = "検証+勢い" if tilt else "検証実績"
         out.append(
             HorizonExpectation(
-                "1週間", five["expectancy"], five["stars"], _confidence_label(five["stars"]),
-                "検証実績", reason,
+                "1週間", pct, five["stars"], _confidence_label(five["stars"]),
+                basis, _short_reason(analysis, pct),
             )
         )
     else:
@@ -227,11 +246,13 @@ def expected_returns(
 
     twenty = by_days.get(20)
     if twenty is not None:
-        reason = _mid_reason(analysis, twenty["expectancy"])
+        tilt = _momentum_tilt(analysis, scale=0.08, cap=3.0)
+        pct = round(twenty["expectancy"] + tilt, 1)
+        basis = "検証+勢い" if tilt else "検証実績"
         out.append(
             HorizonExpectation(
-                "1ヶ月", twenty["expectancy"], twenty["stars"], _confidence_label(twenty["stars"]),
-                "検証実績", reason,
+                "1ヶ月", pct, twenty["stars"], _confidence_label(twenty["stars"]),
+                basis, _mid_reason(analysis, pct),
             )
         )
     else:
