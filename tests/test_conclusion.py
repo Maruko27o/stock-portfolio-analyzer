@@ -45,7 +45,7 @@ def test_do_nothing_when_balanced_and_no_signals():
         _decision("A.T", 60, action="保有"),
         _decision("B.T", 60, action="保有"),
     ]
-    alloc = optimize_allocation(list(decisions), regime="横ばい", vix=18.0)
+    alloc = optimize_allocation(list(decisions), stance="やや弱気", vix=18.0)
     reb = build_rebalance(decisions, {"A.T": 100, "B.T": 100})
     c = build_conclusion(decisions, alloc, reb)
     assert c.do_nothing is True
@@ -57,7 +57,7 @@ def test_buys_listed_when_add_signal():
         _decision("BUY.T", 90, action="買い増し"),
         _decision("HOLD.T", 60, action="保有"),
     ]
-    alloc = optimize_allocation(list(decisions), regime="上昇", vix=15.0)
+    alloc = optimize_allocation(list(decisions), stance="中立", vix=15.0)
     reb = build_rebalance(decisions, {"BUY.T": 100, "HOLD.T": 100})
     c = build_conclusion(decisions, alloc, reb)
     assert c.do_nothing is False
@@ -71,7 +71,7 @@ def test_sells_ordered_by_tax_bias():
         _decision("NISA.T", 30, action="売却推奨", tax_sell_bias=-1),
         _decision("EASY.T", 30, action="売却推奨", tax_sell_bias=1),
     ]
-    alloc = optimize_allocation(list(decisions), regime="横ばい", vix=18.0)
+    alloc = optimize_allocation(list(decisions), stance="やや弱気", vix=18.0)
     reb = build_rebalance(decisions, {"NISA.T": 100, "EASY.T": 100})
     c = build_conclusion(decisions, alloc, reb)
     assert [s.symbol for s in c.sells] == ["EASY.T", "NISA.T"]
@@ -82,7 +82,7 @@ def test_headline_at_most_three_lines():
         _decision("BUY.T", 90, action="強く買い増し"),
         _decision("SELL.T", 30, action="売却推奨"),
     ]
-    alloc = optimize_allocation(list(decisions), regime="上昇", vix=15.0)
+    alloc = optimize_allocation(list(decisions), stance="中立", vix=15.0)
     reb = build_rebalance(decisions, {"BUY.T": 100, "SELL.T": 100})
     c = build_conclusion(decisions, alloc, reb)
     assert len(c.headline) <= 3
@@ -93,7 +93,7 @@ def test_buy_signal_excluded_from_rebalance_trim():
     over = _decision("OVER.T", 88, action="買い増し", price=1000.0)
     small = _decision("SMALL.T", 60, action="保有", price=1000.0)
     decisions = [over, small]
-    alloc = optimize_allocation(list(decisions), regime="上昇", vix=15.0)
+    alloc = optimize_allocation(list(decisions), stance="中立", vix=15.0)
     # OVER を持ちすぎ(70%) → リバランスは縮小方向だが、買いシグナルなので是正から除外
     reb = build_rebalance(decisions, {"OVER.T": 700, "SMALL.T": 300})
     c = build_conclusion(decisions, alloc, reb)
@@ -104,7 +104,7 @@ def test_buy_signal_excluded_from_rebalance_trim():
 def test_candidate_can_be_a_buy():
     decisions = [_decision("HELD.T", 55, action="様子見")]
     candidate = _decision("NEW.T", 92, action="買い増し", is_candidate=True)
-    alloc = optimize_allocation([*decisions, candidate], regime="上昇", vix=15.0)
+    alloc = optimize_allocation([*decisions, candidate], stance="中立", vix=15.0)
     reb = build_rebalance(decisions, {"HELD.T": 100})
     c = build_conclusion(decisions, alloc, reb)
     assert "NEW.T" in [b.symbol for b in c.buys]

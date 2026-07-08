@@ -75,6 +75,7 @@ class HoldingAnalysis:
     forward_per: float | None = None  # analyst-estimate PER; preferred over trailing
     atr: float | None = None  # average true range (volatility unit for targets)
     ex_dividend_estimated: bool = False  # True when the date is projected, not announced
+    earnings_stale: bool = False  # [カテゴリ5] 決算日データが過去日=更新待ち(負の日数を表示させない)
     sma_mid_prev10: float | None = None  # 10営業日前時点の25日線(レンジ判定用)
     target_mean_price: float | None = None  # アナリスト目標株価(平均)
     target_median_price: float | None = None  # アナリスト目標株価(中央値)
@@ -111,7 +112,15 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
 
     fundamentals = fetch_fundamentals(holding.symbol)
     next_earnings = fetch_next_earnings_date(holding.symbol)
-    days_to_earnings = (next_earnings - date.today()).days if next_earnings else None
+    raw_days_to_earnings = (next_earnings - date.today()).days if next_earnings else None
+    # [カテゴリ5] 参照した決算日が過去日(負の日数)なら、データ更新待ちとして扱い
+    # 負の値を下流の表示・アラートに一切流さない(「あと-74日」を構造的に防ぐ)。
+    earnings_stale = raw_days_to_earnings is not None and raw_days_to_earnings < 0
+    if earnings_stale:
+        next_earnings = None
+        days_to_earnings = None
+    else:
+        days_to_earnings = raw_days_to_earnings
     ex_dividend_date = fundamentals["ex_dividend_date"]
     ex_dividend_estimated = False
     if fundamentals["dividend_rate"]:
@@ -123,6 +132,9 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
             ex_dividend_date, dividend_dates, date.today()
         )
     days_to_ex_dividend = (ex_dividend_date - date.today()).days if ex_dividend_date else None
+    # [カテゴリ5] 権利落ち日も過去日(負)なら更新待ち扱いにして負の日数を表示させない。
+    if days_to_ex_dividend is not None and days_to_ex_dividend < 0:
+        ex_dividend_date, days_to_ex_dividend = None, None
     period_high, period_low = period_high_low(highs, lows)
 
     return HoldingAnalysis(
@@ -164,6 +176,7 @@ def analyze_holding(holding: Holding) -> HoldingAnalysis:
         forward_per=fundamentals["forward_per"],
         atr=average_true_range(highs, lows, closes),
         ex_dividend_estimated=ex_dividend_estimated,
+        earnings_stale=earnings_stale,
         sma_mid_prev10=simple_moving_average(closes[:-10], SMA_MID) if len(closes) > 10 else None,
         target_mean_price=fundamentals["target_mean_price"],
         target_median_price=fundamentals["target_median_price"],

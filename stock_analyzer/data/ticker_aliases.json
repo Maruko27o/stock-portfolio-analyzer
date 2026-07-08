@@ -1,0 +1,21 @@
+{
+  "_comment": "同一企業の別ティッカー(国内本体 vs 米ADR/OTC 等)を1つの正規名へ紐付ける表 [カテゴリ6]。キー=ティッカー(大文字), 値=正規企業キー。スコアリング/ランキング/資金配分の前に同一企業を1エントリへ統合するために使う。",
+  "TM": "toyota",
+  "7203.T": "toyota",
+  "SONY": "sony",
+  "6758.T": "sony",
+  "MUFG": "mitsubishi-ufj",
+  "8306.T": "mitsubishi-ufj",
+  "SMFG": "sumitomo-mitsui",
+  "8316.T": "sumitomo-mitsui",
+  "HMC": "honda",
+  "7267.T": "honda",
+  "MFG": "mizuho",
+  "8411.T": "mizuho",
+  "NMR": "nomura",
+  "8604.T": "nomura",
+  "NTTYY": "ntt",
+  "9432.T": "ntt",
+  "TAK": "takeda",
+  "4502.T": "takeda"
+}

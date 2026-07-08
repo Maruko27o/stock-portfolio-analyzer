@@ -40,19 +40,21 @@ jobs:
           ANALYZE_SYMBOLS: ${{ inputs.symbols }}
           SKIP_IF_MARKET_CLOSED: ${{ github.event_name == 'schedule' && '1' || '' }}
           JUDGMENT_LOG: data/judgment_log.csv
+          # [カテゴリ4] スコア安定性の監査ログ(前回サブスコアとの突き合わせ用)。
+          SUBSCORE_LOG: data/subscore_log.csv
         run: python -m stock_analyzer.daily_notify
 
-      - name: Commit judgment log
+      - name: Commit logs
         run: |
-          if [ -f data/judgment_log.csv ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add data/judgment_log.csv
-            if ! git diff --cached --quiet; then
-              git commit -m "chore: 判断ログ追記 ($(TZ=Asia/Tokyo date +%F))"
-              git pull --rebase origin main
-              git push
-            fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for f in data/judgment_log.csv data/subscore_log.csv; do
+            [ -f "$f" ] && git add "$f"
+          done
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: 判断/監査ログ追記 ($(TZ=Asia/Tokyo date +%F))"
+            git pull --rebase origin main
+            git push
           fi
 
       - name: Alert on failure

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
+from stock_analyzer import config
 from stock_analyzer.analysis import HoldingAnalysis
 from stock_analyzer.config import (  # noqa: F401  (後方互換の再エクスポート)
     CATEGORY_CAPS,
@@ -62,6 +63,7 @@ class HoldingSummary:
     horizons: list = field(default_factory=list)  # 保有期間別のスコア帯実績
     reasons: list[str] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
+    subscores: dict = field(default_factory=dict)  # [カテゴリ4]カテゴリ別サブスコア(監査用)
 
 
 def _clamp(value: int, low: int = 0, high: int = 100) -> int:
@@ -304,17 +306,25 @@ def _valuation_signals(analysis: HoldingAnalysis) -> list["Signal"]:
     return signals
 
 
-def _capped_total(signals: list[Signal]) -> int:
-    """Sum signal points with each category clamped to its cap (uncategorized: uncapped)."""
+def category_subscores(signals: list[Signal]) -> dict[str, int]:
+    """カテゴリ別の(上限クリップ後)寄与点を返す [カテゴリ4:安定性の監査用]。
+
+    どのサブスコア(テクニカル/ファンダ/需給/市場…)がスコアを動かしたかを
+    後から突き合わせられるよう、内部監査ログのキーとして保持する。
+    """
     per_category: dict[str, int] = {}
     for signal in signals:
         per_category[signal.category] = per_category.get(signal.category, 0) + signal.points
-
-    total = 0
+    out: dict[str, int] = {}
     for category, points in per_category.items():
         cap = CATEGORY_CAPS.get(category)
-        total += max(-cap, min(cap, points)) if cap else points
-    return total
+        out[category] = max(-cap, min(cap, points)) if cap else points
+    return out
+
+
+def _capped_total(signals: list[Signal]) -> int:
+    """Sum signal points with each category clamped to its cap (uncategorized: uncapped)."""
+    return sum(category_subscores(signals).values())
 
 
 def score_from_signals(signals: list[Signal]) -> int:
@@ -496,26 +506,39 @@ def compute_targets(
 
 
 def detect_risks(analysis: HoldingAnalysis) -> list[str]:
-    """Surface only material risks; an empty list means nothing noteworthy."""
+    """明文化したリスク表示条件に該当する項目だけを返す [カテゴリ7]。
+
+    表示条件(config で一元管理):
+    - RSI >= RISK_RSI_OVERBOUGHT(70) で過熱 / RSI <= RISK_RSI_OVERSOLD(30) で売られすぎ
+    - 配当性向 >= RISK_PAYOUT_RATIO_MAX(200%) で減配リスク大(80%以上でも高水準として表示)
+    - 流動比率 < RISK_CURRENT_RATIO_MIN(1.2) で短期支払い能力に注意
+    - 決算5日以内 / バンド上限超 / 含み損-15%超 / 出来高増を伴う下落
+    空リストなら表示しない(該当時は必ず表示、非該当時は省略。挙動はテストで担保)。
+    """
     risks: list[str] = []
 
     if analysis.days_to_earnings is not None and 0 <= analysis.days_to_earnings <= 5:
         risks.append(f"決算まであと{analysis.days_to_earnings}日")
-    if analysis.rsi is not None and analysis.rsi >= 75:
-        risks.append(f"RSI{analysis.rsi:.0f}で過熱")
-    if analysis.rsi is not None and analysis.rsi <= 25:
+    if analysis.rsi is not None and analysis.rsi >= config.RISK_RSI_OVERBOUGHT:
+        risks.append(f"RSI{analysis.rsi:.0f}で過熱(買われすぎ)")
+    if analysis.rsi is not None and analysis.rsi <= config.RISK_RSI_OVERSOLD:
         risks.append(f"RSI{analysis.rsi:.0f}で売られすぎ")
     if analysis.bollinger is not None and analysis.bollinger >= 3:
         risks.append("バンド上限超で過熱")
-    if analysis.payout_ratio is not None and analysis.payout_ratio >= 0.8:
+    if analysis.payout_ratio is not None and analysis.payout_ratio >= config.RISK_PAYOUT_RATIO_MAX:
+        risks.append(f"配当性向{analysis.payout_ratio * 100:.0f}%(200%超・減配リスク大)")
+    elif analysis.payout_ratio is not None and analysis.payout_ratio >= 0.8:
         risks.append(f"配当性向{analysis.payout_ratio * 100:.0f}%と高水準")
     profit = analysis.profit_pct
     if profit is not None and profit <= -15:
         risks.append(f"含み損{profit:.1f}%")
     if "強い下落" in analysis.volume_price_signal:
         risks.append("出来高増加を伴う下落")
-    if analysis.current_ratio is not None and analysis.current_ratio < 1.0:
-        risks.append("流動比率1.0未満(短期支払い能力に注意)")
+    if analysis.current_ratio is not None and analysis.current_ratio < config.RISK_CURRENT_RATIO_MIN:
+        risks.append(
+            f"流動比率{analysis.current_ratio:.2f}"
+            f"(<{config.RISK_CURRENT_RATIO_MIN:.1f}・短期支払い能力に注意)"
+        )
 
     return risks
 
@@ -560,6 +583,7 @@ def build_summary(
         strategies_active=detect_strategies(analysis),
         reasons=select_reasons(signals, score),
         risks=detect_risks(analysis),
+        subscores=category_subscores(signals),
     )
 
 

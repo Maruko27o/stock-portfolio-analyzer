@@ -12,6 +12,7 @@ RRと期待の矛盾/リスクと買い判断の整合/期待が現実的か/不
 
 from __future__ import annotations
 
+from stock_analyzer import config
 from stock_analyzer.conclusion import BUY_ACTIONS
 from stock_analyzer.decision import SELL_ACTIONS, HoldingDecision
 from stock_analyzer.review import rule_based_review
@@ -20,6 +21,8 @@ MAX_GATE_PASSES = 3
 # 「極端な割高」「期待が高すぎ」の閾値。
 EXTREME_OVERVALUED = 12.0
 UNREALISTIC_RETURN = 40.0
+# [カテゴリ9] 品質ゲート未通過/整合違反があるとき、分析信頼度をこの上限まで引き下げる。
+GATE_FAIL_CONFIDENCE_CAP = 60
 
 
 def _long_term(d: HoldingDecision):
@@ -56,6 +59,13 @@ def gate_check(data) -> list[str]:
         # 強い買いなのに極端な割高
         if d.action == "強く買い増し" and d.discount_pct is not None and d.discount_pct >= EXTREME_OVERVALUED:
             issues.append(f"{tag}: 強い買いだが極端に割高({d.discount_pct:+.0f}%)")
+        # [カテゴリ2] 割高(割安率>0)のハード制約: スコア上限超 or 強い買い
+        if d.discount_pct is not None and d.discount_pct > config.OVERVALUED_DISCOUNT_PCT and (
+            d.overall_score > config.OVERVALUED_SCORE_CAP or d.action == "強く買い増し"
+        ):
+            issues.append(
+                f"{tag}: 割高だが{d.overall_score}点/「{d.action}」(上限{config.OVERVALUED_SCORE_CAP}点)"
+            )
         # 売却なのに期待リターンが高すぎ
         if d.action in SELL_ACTIONS and lt is not None and lt.pct is not None and lt.pct >= 15:
             issues.append(f"{tag}: 売却判断だが期待リターンが高い({lt.pct:+.0f}%)")
@@ -117,14 +127,20 @@ def confidence(data) -> tuple[int, str, list[str]]:
     fill_rate = sum(fill(d) for d in pool) / len(pool)
     review_clean = not getattr(data, "review", [])
     gate_passed = getattr(data, "gate_passed", False)
+    violations = getattr(data, "violations", []) or []
 
     pct = round(55 + 35 * fill_rate + (5 if review_clean else 0) + (5 if gate_passed else 0))
     pct = max(0, min(100, pct))
-    filled = min(5, max(1, round(pct / 20)))
-    stars = "★" * filled + "☆" * (5 - filled)
     reasons = [
         f"データ充足率{fill_rate * 100:.0f}%",
         "レビュー通過" if review_clean else "レビュー指摘あり",
         "品質ゲート通過" if gate_passed else "品質ゲート未通過",
     ]
+    # [カテゴリ9] 内部チェック(品質ゲート/最終整合)が未通過なら信頼度を自動的に引き下げ、
+    # 「参考値」であることを明示する。高信頼度と未通過が併存する矛盾を構造的に防ぐ。
+    if not gate_passed or violations:
+        pct = min(pct, GATE_FAIL_CONFIDENCE_CAP)
+        reasons.append("品質チェック未完了のため参考値(信頼度を引き下げ)")
+    filled = min(5, max(1, round(pct / 20)))
+    stars = "★" * filled + "☆" * (5 - filled)
     return pct, stars, reasons

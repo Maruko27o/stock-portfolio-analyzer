@@ -28,13 +28,24 @@ def _horizon(d: HoldingDecision, label: str):
     return next((h for h in d.expected_returns if h.label == label), None)
 
 
-def recommended_action(d: HoldingDecision) -> str:
-    """推奨アクション(必要なら決算待ちを付す)。"""
+# 品質チェック未通過時に封じる即時アクション文言と、その代替(1段慎重側)。
+_IMMEDIATE_LABELS = {"今すぐ買う"}
+_GUARDED_LABEL = {"今すぐ買う": "分割買い・品質確認待ち"}
+
+
+def recommended_action(d: HoldingDecision, guarded: bool = False) -> str:
+    """推奨アクション(必要なら決算待ちを付す)。
+
+    guarded=True(品質ゲート未通過/整合違反あり)のときは、「今すぐ買う」等の
+    即時アクション文言を出さず、1段慎重な表現へ差し替える [カテゴリ9b]。
+    """
     label = _ACTION_LABEL.get(d.action, d.action)
     if not d.is_candidate and d.action == "一部売却" and (d.profit_pct or 0) > 0:
         label = "利益確定"
     if d.is_candidate and d.action == "保有":
         label = "押し目待ち"
+    if guarded and label in _IMMEDIATE_LABELS:
+        label = _GUARDED_LABEL.get(label, label)
     if d.earnings_alert:
         label += "・決算待ち"
     return label
@@ -59,12 +70,15 @@ def build_context(data) -> dict:
         pool += [x for x in alloc.ranking if id(x) not in seen]
     lts = [_long_term(d).pct for d in pool if _long_term(d) and _long_term(d).pct is not None]
     market_avg = sum(lts) / len(lts) if lts else None
-    return {"market_avg": market_avg}
+    # 品質ゲート未通過 or 整合違反があれば、即時アクション文言を封じる [カテゴリ9b]。
+    guarded = not getattr(data, "gate_passed", True) or bool(getattr(data, "violations", []))
+    return {"market_avg": market_avg, "guarded": guarded}
 
 
 def final_card_lines(d: HoldingDecision, ctx: dict) -> list[str]:
     """1銘柄を9セクションへ整形(表示のみ・数値は変更しない)。"""
     held = not d.is_candidate
+    guarded = bool(ctx.get("guarded"))
     w = _horizon(d, "1週間")
     m = _horizon(d, "1ヶ月")
     lt = _long_term(d)
@@ -82,13 +96,13 @@ def final_card_lines(d: HoldingDecision, ctx: dict) -> list[str]:
     )
 
     # ② 一言要約(20〜40字目安)
-    summary = d.comment or ("・".join(d.reasons[:2]) if d.reasons else recommended_action(d))
+    summary = d.comment or ("・".join(d.reasons[:2]) if d.reasons else recommended_action(d, guarded))
     lines.append("② 一言要約")
     lines.append(f"・{summary[:40]}")
 
     # ③ 推奨アクション
     lines.append("③ 推奨アクション")
-    lines.append(f"・{recommended_action(d)}")
+    lines.append(f"・{recommended_action(d, guarded)}")
 
     # ④ 投資判断(重要度順)
     alpha = None
@@ -145,12 +159,13 @@ def final_embed(d: HoldingDecision, ctx: dict, confidence: tuple) -> dict:
     pct, stars, _reasons = confidence
     heading = f"{d.symbol} {d.name}" if d.name else d.symbol
     tag = "🔍監視 " if d.is_candidate else ""
+    guarded = bool(ctx.get("guarded"))
     lines = final_card_lines(d, ctx)
     # ⑨ 分析信頼度(数値+★)
     lines.append("⑨ 分析信頼度")
     lines.append(f"・{pct}% {stars}")
     return {
-        "title": f"{ACTION_EMOJI.get(d.action, '⚪')} {tag}{heading} — {recommended_action(d)}",
+        "title": f"{ACTION_EMOJI.get(d.action, '⚪')} {tag}{heading} — {recommended_action(d, guarded)}",
         "description": "\n".join(lines),
         "color": _color_int(ACTION_COLOR.get(d.action, "#95A5A6")),
     }

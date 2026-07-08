@@ -30,6 +30,8 @@ class AllocationPlan:
     portfolio_expected_return: float | None  # 配分の加重平均 半年〜1年 期待リターン(%)
     portfolio_risk: float | None  # 配分の加重平均 日次変動率(%)
     diversification_note: str
+    stance: str | None = None  # 現金比率レンジの根拠にした市場スタンス [カテゴリ8]
+    cash_range: tuple[float, float] | None = None  # スタンス由来の推奨現金比率レンジ(%)
 
 
 def _long_term_pct(decision: HoldingDecision) -> float | None:
@@ -93,6 +95,17 @@ def _diversification_note(sector_breakdown: dict[str, float], cash_pct: float, n
 
 
 SCORE_CAVEAT = "※スコアは現在のシグナル整合度。過去検証では帯間の勝率差は小さい点に留意"
+# [カテゴリ3] 買い順位の付け方(スコア基準＋期待リターン×確度の加点)を根拠として明記する。
+RANKING_BASIS = "※買い順位=総合スコア降順を基本に、半年〜1年の期待リターン×確度を加点(priority_value)"
+
+
+def cash_range_note(plan: "AllocationPlan") -> str:
+    """[カテゴリ8] 推奨現金比率のレンジと、その根拠(市場スタンス)を一文で示す。"""
+    if plan.cash_range is None:
+        return f"現金比率 {plan.cash_pct:.0f}%"
+    lo, hi = plan.cash_range
+    stance = plan.stance or "中立"
+    return f"現金比率 {plan.cash_pct:.0f}%(市場「{stance}」→推奨レンジ{lo:.0f}〜{hi:.0f}%)"
 
 
 def format_allocation_lines(plan: "AllocationPlan", top_n: int = 5) -> list[str]:
@@ -111,7 +124,7 @@ def format_allocation_lines(plan: "AllocationPlan", top_n: int = 5) -> list[str]
                 lines.append(f"{d.name or d.symbol} {plan.weights[d.symbol]:.0f}%")
         lines.append(f"現金 {plan.cash_pct:.0f}%")
     lines.append("")
-    stats = [f"現金比率 {plan.cash_pct:.0f}%"]
+    stats = [cash_range_note(plan)]
     if plan.expected_dividend_yield is not None:
         stats.append(f"想定配当利回り {plan.expected_dividend_yield:.1f}%")
     if plan.portfolio_expected_return is not None:
@@ -124,20 +137,23 @@ def format_allocation_lines(plan: "AllocationPlan", top_n: int = 5) -> list[str]
         lines.append("セクター: " + " / ".join(f"{s} {w:.0f}%" for s, w in sectors))
     lines.append(f"分散: {plan.diversification_note}")
     lines.append(SCORE_CAVEAT)
+    lines.append(RANKING_BASIS)
     return lines
 
 
 def optimize_allocation(
     decisions: list[HoldingDecision],
-    regime: str | None = None,
+    stance: str | None = None,
     vix: float | None = None,
 ) -> AllocationPlan:
     """保有＋新規候補の decisions から配分計画を作る。
 
-    regime/vix は現金下限の決定に使う。各 decision の rank/alloc_pct を書き換える。
+    stance(表示される5段階の市場スタンス)/vix は現金下限の決定に使う [カテゴリ8]。
+    現金下限は表示スタンスに連動させ、「弱気なのに現金10%固定」の乖離を無くす。
+    各 decision の rank/alloc_pct を書き換える。
     """
     ranking = _rank(decisions)
-    floor = config.cash_floor(regime, vix)
+    floor = config.cash_floor_for_stance(stance, vix)
     invest_budget = 1.0 - floor  # 投資に回せる上限(残りは最低現金)
 
     # 新規配分の対象: 一定スコア以上かつ買い増し方向
@@ -190,6 +206,7 @@ def optimize_allocation(
     risk = _weighted_avg([(w, d.volatility_pct) for w, d in pairs])
 
     note = _diversification_note(sector_breakdown, cash * 100, len(weights))
+    lo, hi = config.cash_range_for_stance(stance)
 
     return AllocationPlan(
         ranking=ranking,
@@ -200,4 +217,6 @@ def optimize_allocation(
         portfolio_expected_return=exp_ret,
         portfolio_risk=risk,
         diversification_note=note,
+        stance=stance,
+        cash_range=(lo * 100, hi * 100),
     )
