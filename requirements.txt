@@ -4,3 +4,8 @@ pytest>=8.0
 requests>=2.31
 gspread>=6.0
 jpholiday>=0.1.9
+# 強化パイプライン(J-Quants財務→pandas-taモメンタム→scikit-learnスコアリング)。
+# scikit-learn/joblib は必須。pandas-ta は任意で、ワークフロー側で best-effort 導入する
+# (未導入なら momentum.py が内製指標へ自動フォールバック)。
+scikit-learn>=1.3
+joblib>=1.3

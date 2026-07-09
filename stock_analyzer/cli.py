@@ -62,6 +62,7 @@ from stock_analyzer.review import rule_based_review
 from stock_analyzer import (
     aliases,
     consistency,
+    enhanced,
     ranking,
     self_improve,
     stability,
@@ -168,6 +169,10 @@ def render_summary_text(data: "ReportData") -> list[str]:
     # 必須の最終自動検証(7項目)の結果を明示する。
     lines.extend(consistency.format_lines(data.violations))
     lines.append("")
+    # 強化パイプライン(J-Quants×ML)の結果があれば先頭付近に出す。
+    if data.enhanced_picks:
+        lines.extend(enhanced.format_lines(data.enhanced_picks))
+        lines.append("")
     # 銘柄カードはコンパクト表示(見出しに信頼度を内包) [カテゴリ16]。
     ctx = build_context(data)
     for decision in data.decisions:
@@ -229,6 +234,7 @@ class ReportData:
     concentration_caps: list = field(default_factory=list)  # [カテゴリ1]集中度で買い封じした記録
     stability_alerts: list = field(default_factory=list)  # [カテゴリ4]スコア急変の注意
     violations: list = field(default_factory=list)  # [必須検証]最終整合チェックの違反一覧
+    enhanced_picks: list = field(default_factory=list)  # J-Quants×ML 財務スクリーニング結果
 
     def is_empty(self) -> bool:
         return not self.snapshot and not self.summaries and not self.swing_picks
@@ -478,7 +484,26 @@ def collect_report_data(holdings: list[Holding], include_swing_pick: bool = True
         d.confidence_pct, _stars, d.confidence_reasons = quality_gate.decision_confidence(d, data)
     data.violations = consistency.check_all(data)
     data.confidence = quality_gate.confidence(data)  # ヘッダー用(銘柄別の平均)
+    # 強化パイプライン(J-Quants財務→pandas-taモメンタム→MLスコア)。認証が無ければ空=省略。
+    data.enhanced_picks = _run_enhanced(holdings, decisions, candidate_decisions)
     return data
+
+
+def _run_enhanced(holdings, decisions, candidate_decisions) -> list:
+    """J-Quants×ML の財務スクリーニングを実行する(認証が無ければ空)。失敗は握り潰す。"""
+    try:
+        if not enhanced.available():
+            return []
+        symbols = [h.symbol for h in holdings] + [
+            c.symbol for c in candidate_decisions[:SCREEN_STAGE2_LIMIT]
+        ]
+        names = {d.symbol: d.name for d in list(decisions) + list(candidate_decisions)}
+        # 重複コードを除いて評価する。
+        seen: set[str] = set()
+        uniq = [s for s in symbols if not (s in seen or seen.add(s))]
+        return enhanced.run_for_symbols(uniq, names=names)
+    except Exception:
+        return []
 
 
 STABILITY_LOG_ENV_VAR = "SUBSCORE_LOG"
@@ -580,6 +605,16 @@ def discord_embeds_from(data: ReportData) -> list[dict]:
     embeds.extend(final_embed(decision, ctx, data.confidence) for decision in data.decisions)
     if data.swing_picks:
         embeds.append(swing_embed(data.swing_picks))
+    # 強化パイプライン(J-Quants財務×MLスコア)の注目候補。認証が無ければ空=省略。
+    if data.enhanced_picks:
+        from stock_analyzer.discord import _color_int
+
+        lines = enhanced.format_lines(data.enhanced_picks, top_n=6)
+        embeds.append({
+            "title": lines[0] if lines else "🧪 J-Quants×ML 財務スクリーニング",
+            "description": "\n".join(lines[1:]) or "該当なし",
+            "color": _color_int("#1ABC9C"),
+        })
     if data.failed_symbols:
         embeds.append(failed_embed(data.failed_symbols))
 

@@ -31,6 +31,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Install optional pandas-ta (best-effort)
+        # 導入失敗しても本体は動く(momentum.py が内製指標へ自動フォールバック)。
+        run: pip install pandas-ta || echo "pandas-ta unavailable; using built-in indicators fallback"
+
       - name: Send notification
         env:
           # LINE(旧・情報通知)は一旦停止。今回のDiscord通知に情報が統合済みのため
@@ -44,6 +48,10 @@ jobs:
           JUDGMENT_LOG: data/judgment_log.csv
           # [カテゴリ4] スコア安定性の監査ログ(前回サブスコアとの突き合わせ用)。
           SUBSCORE_LOG: data/subscore_log.csv
+          # 強化パイプライン(J-Quants)。未設定なら自動で無効化され既存経路にフォールバック。
+          JQUANTS_REFRESH_TOKEN: ${{ secrets.JQUANTS_REFRESH_TOKEN }}
+          JQUANTS_MAILADDRESS: ${{ secrets.JQUANTS_MAILADDRESS }}
+          JQUANTS_PASSWORD: ${{ secrets.JQUANTS_PASSWORD }}
         run: python -m stock_analyzer.daily_notify
 
       - name: Commit logs
